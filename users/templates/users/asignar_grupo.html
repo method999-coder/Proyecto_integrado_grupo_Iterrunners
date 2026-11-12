@@ -1,0 +1,59 @@
+{% extends "users/base.html" %}
+
+{% block title %}Asignar Grupo{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_corredores' %}">← Volver</a>
+  <h1>Asignar Grupo</h1>
+</div>
+
+<div class="profile-card">
+  <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.10);">
+    <div style="font-size: 14px; color: #f5f5f5; opacity: 0.85;">Corredor</div>
+    <div style="font-size: 20px; color: #ffeb3b; font-weight: 900; margin-top: 4px;">
+      {{ perfil.nombre }}
+    </div>
+    {% if perfil.grupo %}
+      <div style="font-size: 13px; color: #f5f5f5; opacity: 0.7; margin-top: 8px;">
+        Grupo actual: <span style="color: #ffeb3b;">{{ perfil.grupo.nombre }}</span>
+      </div>
+    {% else %}
+      <div style="font-size: 13px; color: #ff9999; margin-top: 8px;">
+        Sin grupo asignado
+      </div>
+    {% endif %}
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="msg {% if message.tags %}msg-{{ message.tags }}{% endif %}" style="margin-bottom: 16px;">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" class="form-card">
+    {% csrf_token %}
+
+    <div class="form-grid">
+      <p>
+        <label>Selecciona un grupo</label><br>
+        <select name="grupo" required>
+          <option value="">-- Selecciona un grupo --</option>
+          {% for grupo in grupos %}
+            <option value="{{ grupo.id }}" {% if perfil.grupo and perfil.grupo.id == grupo.id %}selected{% endif %}>
+              {{ grupo.nombre }} {% if grupo.descripcion %}({{ grupo.descripcion }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </p>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="page-cta page-cta-sm">Asignar Grupo</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

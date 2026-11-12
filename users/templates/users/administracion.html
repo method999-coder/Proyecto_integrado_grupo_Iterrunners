@@ -1,0 +1,51 @@
+{% extends "users/base.html" %}
+
+{% block title %}Administración{% endblock %}
+{% block body_class %}admin-panel{% endblock %}
+
+{% block content %}
+<div class="admin-topbar admin-mobile-topbar">
+  <a class="admin-back" href="{% url 'home' %}">← Volver</a>
+  <h1>Panel de Administración</h1>
+</div>
+
+<div class="admin-grid">
+  <a class="admin-card" href="{% url 'gestion_corredores' %}">
+    <div class="admin-icon">👥</div>
+    <div class="admin-title">Gestión de corredores</div>
+    <div class="admin-desc">Ver corredores y revisar perfil.</div>
+  </a>
+
+  <a class="admin-card" href="{% url 'gestion_calendarios' %}">
+    <div class="admin-icon">🗓️</div>
+    <div class="admin-title">Plan de Entrenamiento</div>
+    <div class="admin-desc">Crear y editar entrenamientos por día y por grupo.</div>
+  </a>
+
+  <a class="admin-card" href="{% url 'gestion_grupos' %}">
+    <div class="admin-icon">🧩</div>
+    <div class="admin-title">Gestión de grupos</div>
+    <div class="admin-desc">Crear y administrar grupos.</div>
+  </a>
+
+  <a class="admin-card" href="{% url 'strava_activities' %}">
+    <div class="admin-icon">🏃‍♂️</div>
+    <div class="admin-title">Actividades Strava</div>
+    <div class="admin-desc">Revisar las actividades sincronizadas desde Strava.</div>
+  </a>
+
+  <a class="admin-card" href="{% url 'cumplimiento_hoy' %}">
+    <div class="admin-icon">✅</div>
+    <div class="admin-title">Cumplimiento de hoy</div>
+    <div class="admin-desc">Ver qué corredores marcaron su actividad como realizada.</div>
+  </a>
+
+  {% if show_activity_users %}
+    <a class="admin-card" href="{% url 'actividad_usuarios' %}">
+      <div class="admin-icon">🟢</div>
+      <div class="admin-title">Actividad de usuarios</div>
+      <div class="admin-desc">Revisar último acceso, estado activo e integración Strava.</div>
+    </a>
+  {% endif %}
+</div>
+{% endblock %}

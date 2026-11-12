@@ -1,0 +1,72 @@
+{% extends "users/base.html" %}
+
+{% block title %}Política de Privacidad | Iter Run{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<main class="main-content" style="max-width:900px;margin:0 auto;padding:0 16px 40px;">
+  <div class="page-topbar" style="margin-bottom:10px;">
+    <h1 style="flex:none;min-width:unset;">Política de Privacidad</h1>
+  </div>
+
+  <div class="detail-card" style="display:grid;gap:14px;line-height:1.55;text-align:justify;">
+    <p style="margin:0;opacity:.92;">
+      Iter Runners es una aplicación para corredores y profesores que permite visualizar planes de entrenamiento,
+      registrar cumplimiento y sincronizar actividades personales desde Strava. El tratamiento de datos se realiza
+      únicamente para entregar funciones deportivas dentro de la aplicación y bajo control del usuario.
+    </p>
+
+    <div>
+      <h2 style="margin:0 0 6px;font-size:18px;color:#ffeb3b;">Datos que tratamos</h2>
+      <p style="margin:0;opacity:.9;">
+        Con consentimiento explícito, Iter Runners puede tratar datos de cuenta y actividad provenientes de Strava,
+        incluyendo identificador de atleta, tokens de acceso/renovación y métricas deportivas como distancia, tiempo,
+        ritmo, elevación, fecha y tipo de actividad. También puede tratar información básica de perfil del usuario
+        dentro de la aplicación (nombre, grupo y registros de cumplimiento).
+      </p>
+    </div>
+
+    <div>
+      <h2 style="margin:0 0 6px;font-size:18px;color:#ffeb3b;">Finalidad del tratamiento</h2>
+      <p style="margin:0;opacity:.9;">
+        Estos datos se utilizan para mostrar estadísticas personales, historial de actividad, seguimiento de
+        entrenamientos y funcionalidades internas del club. Si el usuario lo decide, una actividad puede publicarse
+        en el feed interno y ciertos registros pueden publicarse en rankings deportivos (por ejemplo, controles de
+        3000m y distancias de carrera habilitadas). Cuando el usuario sincroniza Strava, esos datos se usan para
+        alimentar vistas deportivas dentro de la app. Iter Runners no utiliza estos datos para vender perfiles ni
+        para fines publicitarios ajenos al servicio.
+      </p>
+    </div>
+
+    <div>
+      <h2 style="margin:0 0 6px;font-size:18px;color:#ffeb3b;">Medidas de seguridad</h2>
+      <p style="margin:0;opacity:.9;">
+        Aplicamos medidas técnicas y organizativas razonables para proteger la información, incluyendo uso de HTTPS en
+        producción, controles de sesión, protección CSRF, manejo de secretos mediante variables de entorno y reducción
+        de exposición de datos sensibles en logs. El acceso a funciones de datos personales requiere autenticación.
+      </p>
+    </div>
+
+    <div>
+      <h2 style="margin:0 0 6px;font-size:18px;color:#ffeb3b;">Retención y eliminación</h2>
+      <p style="margin:0;opacity:.9;">
+        Los datos se conservan mientras sean necesarios para las funcionalidades activas de la cuenta. El usuario puede
+        desconectar Strava y eliminar los datos sincronizados en la aplicación desde la opción
+        "Eliminar datos de Strava" en el menú de usuario. Esta acción elimina los datos locales asociados y revoca la
+        conexión, pudiendo volver a sincronizarse si el usuario reconecta Strava posteriormente.
+      </p>
+    </div>
+
+    <div>
+      <h2 style="margin:0 0 6px;font-size:18px;color:#ffeb3b;">Control y derechos del usuario</h2>
+      <p style="margin:0;opacity:.9;">
+        El usuario puede conectarse o desconectarse de Strava en cualquier momento, decidir si publica actividades en
+        el feed interno y solicitar actualización o eliminación de sus datos dentro de la aplicación. Para dudas sobre
+        esta política, puede contactar al administrador del servicio.
+      </p>
+    </div>
+
+    <p style="margin:0;opacity:.72;font-size:13px;">Última actualización: marzo 2026</p>
+  </div>
+</main>
+{% endblock %}

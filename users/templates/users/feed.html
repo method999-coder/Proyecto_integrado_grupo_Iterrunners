@@ -1,0 +1,121 @@
+{% extends "users/base.html" %}
+
+{% block title %}Feed | Runners App{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <div class="page-topbar">
+    <a class="page-back" href="{% url 'home' %}">← Volver</a>
+    <h1>Feed</h1>
+  </div>
+
+  {% if feed_posts %}
+    <div class="cards-grid list-vertical">
+      {% for actividad in feed_posts %}
+        <article class="runner-card" id="post-{{ actividad.id }}" style="display:block;">
+          <div class="runner-head" style="margin-bottom: 10px;">
+            <div class="runner-avatar">🏃</div>
+            <div class="runner-info">
+              <div class="runner-name">{{ actividad.perfil.nombre|default:actividad.perfil.usuario.username }}</div>
+              <div class="runner-meta">
+                <span class="runner-badge">{{ actividad.perfil.grupo.nombre|default:"Sin grupo" }}</span>
+                <span class="runner-badge muted">{{ actividad.start_date|date:"d/m/Y H:i" }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-card" style="margin-bottom: 10px;">
+            <div class="detail-name">{{ actividad.name|default:"Actividad Strava" }}</div>
+            <div class="runner-meta" style="margin-top:10px;">
+              <span class="runner-badge">{{ actividad.distance_km }} km</span>
+              <span class="runner-badge">{{ actividad.moving_hms }}</span>
+              <span class="runner-badge">{{ actividad.pace }}</span>
+              {% if actividad.comuna %}
+                <span class="runner-badge muted">{{ actividad.comuna }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="runner-actions" style="justify-content:space-between; margin-bottom:8px;">
+            <form method="post" action="{% url 'feed_like_toggle' actividad.id %}" class="feed-action-form">
+              {% csrf_token %}
+              <button type="submit" class="btn-mini {% if actividad.user_liked %}blue{% endif %}" style="border:none; cursor:pointer;">
+                👍 Me gusta ({{ actividad.likes_total }})
+              </button>
+            </form>
+            <span class="runner-badge muted">💬 {{ actividad.comentarios_total }}</span>
+          </div>
+
+          <form method="post" action="{% url 'feed_comentar' actividad.id %}" style="display:grid; gap:8px;" class="feed-action-form">
+            {% csrf_token %}
+            <input
+              type="text"
+              name="texto"
+              maxlength="300"
+              placeholder="Escribe un comentario..."
+              style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.18); background: rgba(0,0,0,.35); color:#fff;"
+            >
+            <div>
+              <button type="submit" class="btn-mini" style="border:none; cursor:pointer;">Comentar</button>
+            </div>
+          </form>
+
+          {% if actividad.feed_comentarios.all %}
+            <div style="margin-top:10px; display:grid; gap:6px;">
+              {% for comentario in actividad.feed_comentarios.all %}
+                <div class="confirm-box" style="margin:0; padding:8px 10px;">
+                  <div class="confirm-line" style="margin:0;">
+                    <span>{{ comentario.usuario.username }}</span>: {{ comentario.texto }}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-title">Aún no hay publicaciones</div>
+      <p style="margin:0; opacity:.85;">Aquí aparecerán automáticamente las actividades Strava de los corredores.</p>
+    </div>
+  {% endif %}
+</main>
+
+<script>
+  (function () {
+    const forms = document.querySelectorAll(".feed-action-form");
+    if (!forms.length) {
+      return;
+    }
+
+    forms.forEach((form) => {
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) {
+          submitButton.disabled = true;
+        }
+
+        try {
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            credentials: "same-origin",
+          });
+
+          const targetUrl = response.url || window.location.href;
+          window.location.replace(targetUrl);
+        } catch (error) {
+          if (submitButton) {
+            submitButton.disabled = false;
+          }
+          form.submit();
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

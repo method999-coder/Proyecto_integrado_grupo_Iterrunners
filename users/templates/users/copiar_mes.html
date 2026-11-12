@@ -1,0 +1,120 @@
+{% extends "users/base.html" %}
+
+{% block title %}Copiar mes{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_calendarios' %}?grupo={{ grupo.id }}&month={{ mes_destino }}&year={{ anio_destino }}">← Volver</a>
+  <h1>Copiar mes</h1>
+</div>
+
+<div class="profile-card">
+  <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.10);">
+    <div style="font-size: 14px; color: #f5f5f5; opacity: 0.85;">Grupo</div>
+    <div style="font-size: 20px; color: #ffeb3b; font-weight: 900; margin-top: 4px;">
+      {{ grupo.nombre }}
+    </div>
+    <div style="font-size: 13px; color: #f5f5f5; opacity: 0.7; margin-top: 8px;">
+      Mes destino: <span style="color: #ffeb3b;">{{ meses_nombres|slice:mes_destino|last }} {{ anio_destino }}</span>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="msg {% if message.tags %}msg-{{ message.tags }}{% endif %}" style="margin-bottom: 16px;">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if meses_opciones %}
+    <form method="post" class="form-card app-form">
+      {% csrf_token %}
+
+      <div class="form-row">
+        <label class="form-label">Selecciona el grupo origen</label>
+        <select name="grupo_origen" id="grupo_origen" required onchange="filtrarMesesOrigen()">
+          <option value="">-- Selecciona un grupo --</option>
+          {% for g in grupos_disponibles %}
+            <option value="{{ g.id }}">{{ g.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">Selecciona el mes que deseas copiar</label>
+        <select name="mes_origen" id="mes_origen" required onchange="updateAnio()" disabled>
+          <option value="">-- Primero selecciona un grupo --</option>
+          {% for opcion in meses_opciones %}
+            <option value="{{ opcion.mes }}" data-anio="{{ opcion.anio }}" data-grupo="{{ opcion.grupo_id }}" style="display:none;">
+              {{ opcion.nombre }} ({{ opcion.grupo_nombre }})
+            </option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="anio_origen" id="anio_origen">
+      </div>
+
+      <div style="padding: 16px; background: rgba(255,235,59,0.08); border-left: 3px solid #ffeb3b; border-radius: 8px; margin: 16px 0; font-size: 13px; color: #f5f5f5;">
+        📋 Los entrenamientos del mes seleccionado se copiarán a <strong style="color: #ffeb3b;">{{ meses_nombres|slice:mes_destino|last }} {{ anio_destino }}</strong>.<br>
+        Los días que no existen en el mes destino se omitirán automáticamente.
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="page-cta">Copiar entrenamientos</button>
+        <a class="btn-mini" href="{% url 'gestion_calendarios' %}?grupo={{ grupo.id }}&month={{ mes_destino }}&year={{ anio_destino }}">Cancelar</a>
+      </div>
+    </form>
+
+    <script>
+    function filtrarMesesOrigen() {
+      const grupoSelect = document.getElementById('grupo_origen');
+      const mesSelect = document.getElementById('mes_origen');
+      const anioInput = document.getElementById('anio_origen');
+      const grupoId = grupoSelect.value;
+      const opciones = mesSelect.querySelectorAll('option[data-grupo]');
+
+      mesSelect.value = '';
+      anioInput.value = '';
+
+      let hayOpciones = false;
+      opciones.forEach((option) => {
+        const visible = grupoId && option.getAttribute('data-grupo') === grupoId;
+        option.style.display = visible ? '' : 'none';
+        if (visible) {
+          hayOpciones = true;
+        }
+      });
+
+      if (hayOpciones) {
+        mesSelect.disabled = false;
+        mesSelect.options[0].text = '-- Selecciona un mes --';
+      } else {
+        mesSelect.disabled = true;
+        mesSelect.options[0].text = grupoId
+          ? '-- Este grupo no tiene meses disponibles --'
+          : '-- Primero selecciona un grupo --';
+      }
+    }
+
+    function updateAnio() {
+      const select = document.getElementById('mes_origen');
+      const anioInput = document.getElementById('anio_origen');
+      const selectedOption = select.options[select.selectedIndex];
+      if (selectedOption) {
+        anioInput.value = selectedOption.getAttribute('data-anio');
+      }
+    }
+    </script>
+  {% else %}
+    <div style="text-align: center; padding: 40px 20px; color: #999;">
+      <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">No hay meses disponibles para copiar</div>
+      <div style="font-size: 14px; opacity: 0.8;">Crea entrenamientos en otros meses primero</div>
+      <div style="margin-top: 24px;">
+        <a href="{% url 'gestion_calendarios' %}?grupo={{ grupo.id }}&month={{ mes_destino }}&year={{ anio_destino }}" class="btn-mini">Volver al calendario</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

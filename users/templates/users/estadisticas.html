@@ -1,0 +1,281 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block title %}Estadísticas | Runners App{% endblock %}
+{% block body_class %}app-estadisticas{% endblock %}
+
+{% block content %}
+<div class="page-topbar stats-page-topbar">
+  <a class="page-back" href="{% url 'home' %}">← Volver</a>
+  <h1>Cumplimiento / Volumen</h1>
+</div>
+
+{% if error %}
+  <div class="plan-hoy">
+    <h2>Ups</h2>
+    <p class="plan-desc">{{ error }}</p>
+  </div>
+{% else %}
+  <div class="plan-hoy stats-shell">
+    <section class="stats-section">
+      <div class="period-block">
+        <div class="period-range">Semana ({{ inicio_semana|date:"d/m/Y" }} al {{ fin_semana|date:"d/m/Y" }})</div>
+
+        <div class="stats-card">
+          <div class="card-head-inline">
+            <div class="stats-title">Cumplimiento semana</div>
+            <div class="stats-inline-nav">
+              <a class="stats-nav-btn" href="{% url 'estadisticas' %}?week_start={{ prev_week_start|date:'Y-m-d' }}&month={{ inicio_mes|date:'Y-m' }}">◀</a>
+              {% if next_week_start %}
+                <a class="stats-nav-btn" href="{% url 'estadisticas' %}?week_start={{ next_week_start|date:'Y-m-d' }}&month={{ inicio_mes|date:'Y-m' }}">▶</a>
+              {% else %}
+                <span class="stats-nav-btn is-disabled">▶</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="stats-big">{{ pct_semana }}%</div>
+          <div class="stats-sub">{{ real_semana }} realizadas / {{ plan_semana }} planificadas</div>
+
+          <div class="progress">
+            <div class="progress-fill" data-pct="{{ pct_semana }}"></div>
+          </div>
+
+          <div class="motivation" style="margin-top:10px;">
+            {% if pct_semana >= 80 %}
+              🔥 Vas excelente esta semana. Mantén el ritmo.
+            {% elif pct_semana >= 50 %}
+              💪 Bien. Con 1–2 días más lo subes bastante.
+            {% else %}
+              🌱 Semana tranquila. Hoy es un buen día para retomar.
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="stats-card" style="margin-top: 10px;">
+          <div class="stats-title">Volumen semana</div>
+
+          <div class="kpi">
+            <span>Km</span>
+            <strong>{{ sem_km }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Tiempo</span>
+            <strong>{{ sem_time }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Desnivel</span>
+            <strong>{{ sem_elev }} m</strong>
+          </div>
+          <div class="kpi">
+            <span>Ritmo prom.</span>
+            <strong>{{ sem_pace }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="period-block" style="margin-top: 16px;">
+        <div class="period-range">Mes ({{ inicio_mes|date:"d/m/Y" }} al {{ fin_mes|date:"d/m/Y" }})</div>
+
+        <div class="stats-card">
+          <div class="card-head-inline">
+            <div class="stats-title">Cumplimiento mes</div>
+            <div class="stats-inline-nav">
+              <a class="stats-nav-btn" href="{% url 'estadisticas' %}?week_start={{ inicio_semana|date:'Y-m-d' }}&month={{ prev_month_start|date:'Y-m' }}">◀</a>
+              {% if next_month_start %}
+                <a class="stats-nav-btn" href="{% url 'estadisticas' %}?week_start={{ inicio_semana|date:'Y-m-d' }}&month={{ next_month_start|date:'Y-m' }}">▶</a>
+              {% else %}
+                <span class="stats-nav-btn is-disabled">▶</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="stats-big">{{ pct_mes }}%</div>
+          <div class="stats-sub">{{ real_mes }} realizadas / {{ plan_mes }} planificadas</div>
+
+          <div class="progress">
+            <div class="progress-fill" data-pct="{{ pct_mes }}"></div>
+          </div>
+        </div>
+
+        <div class="stats-card" style="margin-top: 10px;">
+          <div class="stats-title">Volumen mes</div>
+
+          <div class="kpi">
+            <span>Km</span>
+            <strong>{{ mes_km }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Tiempo</span>
+            <strong>{{ mes_time }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Desnivel</span>
+            <strong>{{ mes_elev }} m</strong>
+          </div>
+          <div class="kpi">
+            <span>Ritmo prom.</span>
+            <strong>{{ mes_pace }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <p class="plan-desc" style="opacity:.7; margin-top: 12px;">
+        * Ritmo promedio ponderado = tiempo total / km totales.
+      </p>
+
+      <p class="plan-desc" style="opacity:.72; margin-top: 8px; text-align:center; font-size:12px;">
+        Datos de actividad proporcionados por
+        <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer" style="color:#dbe6ff; text-decoration:none;">Strava</a>
+        ·
+        Compatible con Strava
+        ·
+        <a href="{% url 'privacy_policy' %}" style="color:#dbe6ff; text-decoration:none;">Política de Privacidad</a>
+      </p>
+    </section>
+  </div>
+
+{% endif %}
+
+<style>
+  .app-estadisticas{
+    background: #000;
+    min-height: 100vh;
+  }
+  .stats-page-topbar{
+    margin-bottom: 10px;
+  }
+  .stats-shell{
+    margin-bottom: 0;
+  }
+  @media (max-width: 768px){
+    .app-estadisticas .stats-page-topbar{
+      padding: 10px 12px;
+      margin-bottom: 4px;
+    }
+    .stats-shell{
+      margin-top: 0;
+    }
+  }
+  .period-block{
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .period-range{
+    text-align:center;
+    font-weight: 700;
+    color:#dbe6ff;
+    opacity: .95;
+    margin: 2px 0 10px;
+  }
+  .card-head-inline{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .stats-inline-nav{
+    display:flex;
+    gap: 6px;
+    align-items:center;
+  }
+  .stats-nav-btn{
+    min-height: 32px;
+    min-width: 30px;
+    padding: 4px 7px;
+    border-radius: 9px;
+    border: 1px solid rgba(96,165,250,.55);
+    background: rgba(37,99,235,.92);
+    color:#fff;
+    text-decoration:none;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+  }
+  .stats-nav-btn.is-disabled{
+    opacity:.55;
+    background: rgba(30,58,138,.5);
+    border-color: rgba(96,165,250,.3);
+    cursor:not-allowed;
+  }
+  .stats-nav-btn:hover{
+    background: rgba(29,78,216,.95);
+  }
+  /* estilos localizados para no romper tu CSS global */
+  .stats-grid{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  @media (min-width: 780px){
+    .stats-grid{ grid-template-columns: 1fr 1fr; }
+  }
+  .stats-card{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: 14px;
+    background: rgba(255,255,255,.03);
+    color: #f3f4f6;
+  }
+  .stats-title{ opacity:.95; font-weight:700; color:#dbe6ff; }
+  .stats-big{ font-size: 26px; font-weight:800; margin-top: 6px; color:#ffffff; }
+  .stats-sub{ opacity:.9; margin-top: 2px; color:#cfd6e4; }
+  .progress{
+    height: 10px;
+    background: rgba(255,255,255,.08);
+    border-radius: 999px;
+    overflow:hidden;
+    margin-top: 10px;
+  }
+  .progress-fill{
+    height: 100%;
+    background: #f5c518; /* amarillo tipo github */
+    width: 0;
+  }
+  .kpi{
+    display:flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    color:#e5e7eb;
+  }
+  .kpi strong{ color:#ffffff; font-weight:800; }
+  .kpi:last-child{ border-bottom: 0; }
+  .motivation{
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(245,197,24,.12);
+    border: 1px solid rgba(245,197,24,.25);
+    color:#f7e3a3;
+    font-weight:600;
+  }
+  @media (max-width: 640px){
+    .period-range{ font-size: 16px; }
+    .stats-big{ font-size: 24px; }
+    .stats-nav-btn{
+      min-height: 26px;
+      min-width: 30px;
+      padding: 2px 7px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    const fills = document.querySelectorAll('.progress-fill[data-pct]');
+    fills.forEach((fill) => {
+      const rawValue = parseFloat(fill.dataset.pct || '0');
+      const safeValue = Number.isFinite(rawValue) ? Math.max(0, Math.min(100, rawValue)) : 0;
+      fill.style.width = safeValue + '%';
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "users/base.html" %}
+
+{% block title %}Actividad de usuarios{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'administracion' %}">← Volver</a>
+  <h1>Actividad de usuarios</h1>
+</div>
+
+<p class="cumplimiento-subdate">Se considera activo si tuvo actividad en la app durante los últimos {{ active_window_days }} días (con fallback a último login).</p>
+
+<div class="profile-card actividad-usuarios-filters-wrap">
+  <form method="get" class="form-card form-compact">
+    <div class="form-row-horizontal actividad-usuarios-filters">
+      <div class="form-field-compact">
+        <label>Grupo</label>
+        <select name="grupo">
+          <option value="">Todos</option>
+          {% for g in grupos %}
+            <option value="{{ g.id }}" {% if grupo_id == g.id|stringformat:"s" %}selected{% endif %}>{{ g.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-field-compact">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="todos" {% if estado == "todos" %}selected{% endif %}>Todos</option>
+          <option value="activos" {% if estado == "activos" %}selected{% endif %}>Activos</option>
+          <option value="inactivos" {% if estado == "inactivos" %}selected{% endif %}>Inactivos</option>
+          <option value="strava" {% if estado == "strava" %}selected{% endif %}>Con Strava</option>
+          <option value="nunca" {% if estado == "nunca" %}selected{% endif %}>Nunca se han conectado</option>
+        </select>
+      </div>
+
+      <button type="submit" class="page-cta btn-compact">Filtrar</button>
+    </div>
+  </form>
+</div>
+
+<div class="actividad-kpi-grid">
+  <a class="actividad-kpi-card actividad-kpi-link {% if estado == 'todos' %}actividad-kpi-card-selected{% endif %}" href="?estado=todos{% if grupo_id %}&grupo={{ grupo_id }}{% endif %}">
+    <div class="actividad-kpi-label">Usuarios</div>
+    <div class="actividad-kpi-value">{{ stats_total }}</div>
+  </a>
+  <a class="actividad-kpi-card actividad-kpi-card-active actividad-kpi-link {% if estado == 'activos' %}actividad-kpi-card-selected{% endif %}" href="?estado=activos{% if grupo_id %}&grupo={{ grupo_id }}{% endif %}">
+    <div class="actividad-kpi-label">Activos</div>
+    <div class="actividad-kpi-value">{{ stats_active }}</div>
+  </a>
+  <a class="actividad-kpi-card actividad-kpi-card-inactive actividad-kpi-link {% if estado == 'inactivos' %}actividad-kpi-card-selected{% endif %}" href="?estado=inactivos{% if grupo_id %}&grupo={{ grupo_id }}{% endif %}">
+    <div class="actividad-kpi-label">Inactivos</div>
+    <div class="actividad-kpi-value">{{ stats_inactive }}</div>
+  </a>
+  <a class="actividad-kpi-card actividad-kpi-card-strava actividad-kpi-link {% if estado == 'strava' %}actividad-kpi-card-selected{% endif %}" href="?estado=strava{% if grupo_id %}&grupo={{ grupo_id }}{% endif %}">
+    <div class="actividad-kpi-label">Con Strava</div>
+    <div class="actividad-kpi-value">{{ stats_strava }}</div>
+  </a>
+  <a class="actividad-kpi-card actividad-kpi-card-never actividad-kpi-link {% if estado == 'nunca' %}actividad-kpi-card-selected{% endif %}" href="?estado=nunca{% if grupo_id %}&grupo={{ grupo_id }}{% endif %}">
+    <div class="actividad-kpi-label">Nunca login</div>
+    <div class="actividad-kpi-value">{{ stats_never }}</div>
+  </a>
+</div>
+
+{% if never_login_usernames %}
+  <details class="actividad-never-box" {% if estado == "nunca" %}open{% endif %}>
+    <summary>
+      Nunca login ({{ stats_never }})
+    </summary>
+    <div class="actividad-never-list">
+      {% for username in never_login_usernames %}
+        <span class="actividad-never-chip">@{{ username }}</span>
+      {% endfor %}
+    </div>
+  </details>
+{% endif %}
+
+<p class="actividad-usuarios-total">Resultados: {{ total }}</p>
+
+{% if rows %}
+  <div class="cards-grid list-vertical actividad-usuarios-list">
+    {% for row in rows %}
+      <div class="detail-card actividad-usuario-item">
+        <div class="actividad-usuario-head">
+          <div>
+            <div class="detail-title">{{ row.perfil.nombre }} {{ row.perfil.apellido }}</div>
+            <div class="detail-meta">@{{ row.perfil.usuario.username }} · {{ row.grupo_nombre }}</div>
+          </div>
+          {% if row.is_recently_active %}
+            <span class="runner-badge actividad-chip-ok">Activo</span>
+          {% else %}
+            <span class="runner-badge actividad-chip-off">Inactivo</span>
+          {% endif %}
+        </div>
+
+        <div class="actividad-usuario-grid">
+          <div><strong>Última actividad app:</strong> {% if row.last_access %}{{ row.last_access|date:"d/m/Y H:i" }}{% else %}Sin registro{% endif %}</div>
+          <div><strong>Último login:</strong> {% if row.last_login %}{{ row.last_login|date:"d/m/Y H:i" }}{% else %}Nunca{% endif %}</div>
+          <div>
+            <strong>Cuenta:</strong>
+            {% if row.is_account_enabled %}
+              Habilitada
+            {% else %}
+              Deshabilitada
+            {% endif %}
+          </div>
+          <div>
+            <strong>Strava:</strong>
+            {% if row.strava_connected %}
+              Conectado
+            {% else %}
+              No conectado
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-title">No hay usuarios para los filtros seleccionados</div>
+  </div>
+{% endif %}
+{% endblock %}

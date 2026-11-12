@@ -1,0 +1,169 @@
+{% extends "users/base.html" %}
+
+{% block title %}Registro de actividad{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'home' %}">← Volver</a>
+  <h1>Registro de actividad</h1>
+</div>
+
+<div class="profile-card">
+  <form method="get" class="form-card form-compact">
+    <div class="form-row-horizontal">
+      <div class="form-field-compact">
+        <label>Fecha a registrar</label>
+        <input type="date" name="fecha" value="{{ fecha_consulta|date:'Y-m-d' }}" onclick="if (this.showPicker) this.showPicker()">
+      </div>
+      <button type="submit" class="page-cta blue btn-compact">Ver día</button>
+    </div>
+  </form>
+</div>
+
+<div class="reg-mini-cal">
+  <div class="reg-mini-head">
+    <a class="reg-mini-nav" href="{% url 'registro_actividad' %}?fecha={{ month_prev_ref|date:'Y-m-d' }}">◀</a>
+    <div class="reg-mini-title">{{ month_current|date:"F Y" }}</div>
+    <a class="reg-mini-nav" href="{% url 'registro_actividad' %}?fecha={{ month_next_ref|date:'Y-m-d' }}">▶</a>
+  </div>
+
+  <div class="reg-mini-legend">
+    <span class="reg-mini-pill done">Realizado</span>
+    <span class="reg-mini-pill pending">No realizado</span>
+    <span class="reg-mini-pill empty">Sin plan</span>
+  </div>
+
+  <div class="reg-mini-grid">
+    <div class="reg-mini-dow">L</div><div class="reg-mini-dow">M</div><div class="reg-mini-dow">X</div>
+    <div class="reg-mini-dow">J</div><div class="reg-mini-dow">V</div><div class="reg-mini-dow">S</div><div class="reg-mini-dow">D</div>
+
+    {% for week in month_weeks %}
+      {% for cell in week %}
+        {% if not cell.in_month %}
+          <div class="reg-mini-day muted"></div>
+        {% else %}
+          <a href="{% url 'registro_actividad' %}?fecha={{ cell.date|date:'Y-m-d' }}"
+             class="reg-mini-day {{ cell.status }} {% if cell.selected %}selected{% endif %} {% if cell.today %}today{% endif %}">
+            {{ cell.date|date:"j" }}
+          </a>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if entreno_registro %}
+  <div class="detail-card blue" style="max-width: 860px; margin: 16px auto 0 auto;">
+    <div class="detail-head">
+      <div class="detail-name">{{ entreno_registro.titulo|default:entreno_registro.get_tipo_display }}</div>
+      <span class="runner-badge">{{ fecha_consulta|date:"l j \\d\\e F" }}</span>
+    </div>
+    <div class="detail-desc">
+      {% if entreno_registro.descripcion %}
+        {{ entreno_registro.descripcion }}
+      {% else %}
+        <span class="muted">Sin descripción.</span>
+      {% endif %}
+    </div>
+
+    <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      {% if cumplimiento_registro and cumplimiento_registro.realizada %}
+        <span class="runner-badge">✅ Realizada</span>
+        {% if cumplimiento_registro.realizada_at %}
+          <span class="runner-badge muted">{{ cumplimiento_registro.realizada_at|date:"H:i" }}</span>
+        {% endif %}
+        {% if cumplimiento_registro.publicar_ranking and cumplimiento_registro.ranking_distancia %}
+          <span class="runner-badge">🏁 Ranking {% if cumplimiento_registro.ranking_distancia == 3 %}3000m{% else %}{{ cumplimiento_registro.ranking_distancia }}K{% endif %}</span>
+        {% endif %}
+      {% else %}
+        <span class="runner-badge muted">⏳ Pendiente (si no registras, cuenta como no realizada)</span>
+      {% endif %}
+    </div>
+
+        <form id="registroActividadForm" method="post" style="margin-top: 12px; display: grid; gap: 10px;"
+          data-return-url="{% url 'registro_actividad' %}?fecha={{ fecha_consulta|date:'Y-m-d' }}">
+      {% csrf_token %}
+      <input type="hidden" name="fecha" value="{{ fecha_consulta|date:'Y-m-d' }}">
+
+      <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+        <input type="checkbox" name="realizada" {% if cumplimiento_registro and cumplimiento_registro.realizada %}checked{% endif %}>
+        Marcar como realizada
+      </label>
+
+      <textarea name="comentario" rows="4" placeholder="Agregar comentario (opcional)"
+                style="display:block; width:100%; box-sizing:border-box; max-width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(0,0,0,.15); background: #fff; color:#111;">{% if cumplimiento_registro %}{{ cumplimiento_registro.comentario }}{% endif %}</textarea>
+
+      {% if ranking_habilitado %}
+      <div style="display:grid; gap:8px; padding:10px 12px; border-radius:10px; background: rgba(37,99,235,0.10); border:1px solid rgba(96,165,250,0.35);">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+          <input type="checkbox" name="publicar_ranking" {% if cumplimiento_registro and cumplimiento_registro.publicar_ranking %}checked{% endif %}>
+          Subir a ranking (opcional)
+        </label>
+        {% if strava_sugerencia %}
+          <small style="opacity:.88;">
+            Strava detectado en esta fecha: {{ strava_sugerencia.actividad_nombre }} ({{ strava_sugerencia.actividad_km }} km)
+            {% if strava_sugerencia.sugerencia_etiqueta %}
+              · sugerencia: {{ strava_sugerencia.sugerencia_etiqueta }}
+            {% endif %}
+          </small>
+        {% endif %}
+        <div>
+          <label style="display:block; font-size:12px; opacity:.9; margin-bottom:6px;">Distancia</label>
+          <select name="ranking_distancia" style="display:block; width:100%; max-width:220px; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid rgba(0,0,0,.15); background:#fff; color:#111;">
+            <option value="">Seleccionar</option>
+            {% for valor, texto in ranking_distancias %}
+              <option value="{{ valor }}" {% if cumplimiento_registro and cumplimiento_registro.ranking_distancia == valor %}selected{% elif ranking_distancia_sugerida == valor %}selected{% endif %}>{{ texto }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <small style="opacity:.85;">Disponible solo para entrenamientos tipo carrera o control.</small>
+      </div>
+      {% endif %}
+
+      <div>
+        <button type="submit" class="btn-mini blue" style="border:none; cursor:pointer;">Guardar registro</button>
+      </div>
+    </form>
+  </div>
+{% else %}
+  <div class="empty-state" style="max-width: 860px; margin: 16px auto 0 auto;">
+    <div class="empty-title">No hay entrenamiento para la fecha seleccionada</div>
+    <p style="opacity:.85; margin:0;">Selecciona otra fecha que tenga plan para registrar estado y comentario.</p>
+  </div>
+{% endif %}
+
+<script>
+  (function () {
+    const form = document.getElementById("registroActividadForm");
+    if (!form) return;
+
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const submitBtn = form.querySelector("button[type='submit']");
+      if (submitBtn) submitBtn.disabled = true;
+
+      const returnUrl = form.dataset.returnUrl || window.location.href;
+
+      try {
+        await fetch(window.location.href, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          redirect: "manual",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+
+        // Replace avoids stacking one history entry per saved action.
+        window.location.replace(returnUrl);
+      } catch (error) {
+        if (submitBtn) submitBtn.disabled = false;
+        form.submit();
+      }
+    });
+  })();
+</script>
+{% endblock %}

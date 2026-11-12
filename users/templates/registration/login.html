@@ -1,0 +1,56 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión | Runners App</title>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Iter Runners">
+  <meta name="theme-color" content="#000000">
+
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}?v=5">
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'imagen/icono-192.png' %}?v=5">
+  <link rel="apple-touch-icon" href="{% static 'imagen/apple-touch-icon-180.png' %}">
+  <link rel="apple-touch-icon" sizes="120x120" href="{% static 'imagen/apple-touch-icon-120.png' %}">
+  <link rel="apple-touch-icon" sizes="152x152" href="{% static 'imagen/apple-touch-icon-152.png' %}">
+  <link rel="apple-touch-icon" sizes="167x167" href="{% static 'imagen/apple-touch-icon-167.png' %}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'imagen/apple-touch-icon-180.png' %}">
+
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=147">
+</head>
+<body class="auth-page">
+
+  <div class="auth-wrapper">
+    <h1 class="auth-brand">RUNNERS APP</h1>
+
+    <div class="auth-card">
+      <h2 class="auth-title">Iniciar sesión</h2>
+
+      {% if form.errors %}
+        <p class="auth-error">Usuario o contraseña incorrectos.</p>
+      {% endif %}
+
+      <form method="post" class="auth-form">
+        {% csrf_token %}
+
+        <label for="id_username">Usuario</label>
+        {{ form.username }}
+
+        <label for="id_password">Contraseña</label>
+        {{ form.password }}
+
+        <button type="submit" class="auth-btn">Ingresar</button>
+      </form>
+
+      <div class="auth-links">
+        <a href="{% url 'password_reset' %}" class="auth-link">¿Olvidaste tu contraseña?</a>
+        <a href="{% url 'privacy_policy' %}" class="auth-link">Política de Privacidad</a>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

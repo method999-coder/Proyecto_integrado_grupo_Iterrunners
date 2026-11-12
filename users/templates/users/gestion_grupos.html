@@ -1,0 +1,51 @@
+{% extends "users/base.html" %}
+
+{% block title %}Gestión de grupos{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar grupos-topbar">
+  <a class="page-back" href="{% url 'administracion' %}">← Volver</a>
+  <h1>Gestión de grupos</h1>
+
+  <a class="page-cta grupos-cta" href="{% url 'crear_grupo' %}">+ Crear grupo</a>
+</div>
+
+<div class="profile-card">
+  {% if grupos %}
+    <div class="cards-grid list-vertical">
+      {% for g in grupos %}
+        <div class="runner-card">
+          <div class="runner-head">
+            <div class="runner-avatar">🧩</div>
+
+            <div class="runner-info">
+              <div class="runner-name">{{ g.nombre }}</div>
+
+              <div class="runner-meta">
+                <span class="runner-badge muted">
+                  {{ g.descripcion|default:"Sin descripción" }}
+                </span>
+
+                <span class="runner-badge">
+                  👥 {{ g.corredores_count }} corredor{{ g.corredores_count|pluralize:"es" }}
+                </span>
+              </div>
+            </div>
+
+            <!-- ✅ acciones alineadas a la derecha dentro del head -->
+            <div class="runner-actions">
+              <a class="btn-mini" href="{% url 'editar_grupo' g.id %}">Editar</a>
+              <a class="btn-mini danger" href="{% url 'eliminar_grupo' g.id %}">Eliminar</a>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-title">No hay grupos creados aún</div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

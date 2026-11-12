@@ -1,0 +1,73 @@
+{% extends "users/base.html" %}
+
+{% block title %}Gestión de corredores{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar corredores-topbar">
+  <a class="page-back" href="{% url 'administracion' %}">← Volver</a>
+  <h1>Gestión de corredores</h1>
+  <a class="page-cta page-cta-sm corredores-cta" href="{% url 'crear_corredor' %}">+ Crear corredor</a>
+</div>
+
+{% if corredores %}
+  <div class="cards-grid list-vertical">
+    {% for c in corredores %}
+      <div class="runner-card">
+        <div class="runner-head">
+          <div class="runner-avatar">🏃‍♀️</div>
+          <div class="runner-info">
+            <div class="runner-name">
+              {{ c.usuario.get_full_name|default:c.usuario.username }}
+            </div>
+            <div class="runner-meta">
+              <span class="runner-badge">
+                {% if c.grupo %}{{ c.grupo.nombre }}{% else %}Sin grupo{% endif %}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="runner-actions">
+          <div class="action-menu">
+            <button class="btn-menu" onclick="toggleMenu(this)">⋮</button>
+            <div class="action-dropdown">
+              <a href="{% url 'editar_corredor' c.id %}">Editar Usuario</a>
+              <a href="{% url 'asignar_grupo' c.id %}">
+                {% if c.grupo %}Editar Plan{% else %}Asignar Plan{% endif %}
+              </a>
+              <a href="{% url 'crear_ritmo' c.id %}">{% if c.tiene_ritmo %}Editar ritmos{% else %}Agregar ritmos{% endif %}</a>
+              <form method="post" action="{% url 'restablecer_password_corredor' c.id %}">
+                {% csrf_token %}
+                <button type="submit" class="action-link">Restablecer contraseña</button>
+              </form>
+              <a href="{% url 'eliminar_corredor' c.id %}" class="action-danger">Eliminar</a>
+              <a href="{% url 'historial_carreras_manual' c.id %}">Historial de carreras</a>
+              <a href="{% url 'historial_lactato_manual' c.id %}">Historial de lactato</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-title">No hay corredores registrados</div>
+  </div>
+{% endif %}
+
+<script>
+function toggleMenu(btn) {
+  const menu = btn.parentElement;
+  const dropdown = menu.querySelector('.action-dropdown');
+  dropdown.classList.toggle('active');
+  
+  // Cerrar si hace click fuera
+  document.addEventListener('click', function(e) {
+    if (!menu.contains(e.target)) {
+      dropdown.classList.remove('active');
+    }
+  });
+}
+</script>
+{% endblock %}

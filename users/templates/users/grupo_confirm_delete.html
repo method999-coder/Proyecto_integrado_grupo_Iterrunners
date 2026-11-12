@@ -1,0 +1,24 @@
+{% extends "users/base.html" %}
+
+{% block title %}Eliminar grupo{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_grupos' %}">← Volver</a>
+  <h1>Eliminar grupo</h1>
+</div>
+
+<div class="profile-card">
+  <h2 class="profile-section">¿Eliminar el grupo “{{ grupo.nombre }}”?</h2>
+  <p style="opacity:.85; margin-top:8px;">
+    Esta acción no se puede deshacer.
+  </p>
+
+  <form method="post" style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+    {% csrf_token %}
+    <button type="submit" class="btn-danger">Sí, eliminar</button>
+    <a class="page-cta" href="{% url 'gestion_grupos' %}">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

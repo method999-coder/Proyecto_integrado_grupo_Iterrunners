@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Trail">
+  <g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 54 L24 24 L42 54 Z"/>
+    <path d="M25 54 L39 31 L54 54 Z"/>
+  </g>
+  <path d="M21 30 L24 24 L27 30" fill="#FFFFFF"/>
+  <path d="M36 37 L39 31 L42 37" fill="#FFFFFF"/>
+</svg>

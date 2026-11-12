@@ -1,0 +1,385 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block title %}Detalle corredor | Actividades Strava{% endblock %}
+{% block body_class %}admin-panel{% endblock %}
+
+{% block content %}
+<div class="runner-act-page">
+  <div class="runner-act-topbar">
+    <a class="runner-act-back" href="{% url 'strava_activities' %}">← Volver</a>
+    <h1>Actividades Strava</h1>
+  </div>
+
+  <section class="runner-act-header" aria-label="Corredor">
+    <div class="runner-act-name">
+      {{ corredor.nombre }}{% if corredor.apellido %} {{ corredor.apellido }}{% elif corredor.usuario.last_name %} {{ corredor.usuario.last_name }}{% endif %}
+    </div>
+    <div class="runner-act-group">Grupo: {{ corredor.grupo.nombre|default:"Sin grupo" }}</div>
+  </section>
+
+  <main class="runner-act-wrap">
+    {% if actividades %}
+      <div class="runner-act-list">
+        {% for actividad in actividades %}
+          {% if actividad.date_short %}
+            <div class="runner-activity-date">{{ actividad.date_short }}</div>
+          {% endif %}
+
+          <article class="runner-act-card">
+            <div class="runner-act-card-content">
+              <div class="runner-act-distance">
+                {% if actividad.is_trail %}
+                  <span class="runner-act-icon-slot">
+                    <img class="runner-act-discipline-icon" src="{% static 'imagen/icon-trail.svg' %}" alt="" aria-hidden="true">
+                  </span>
+                {% elif actividad.is_ride %}
+                  <span class="runner-act-icon-slot">
+                    <img class="runner-act-discipline-icon" src="{% static 'imagen/icon-ride.svg' %}" alt="" aria-hidden="true">
+                  </span>
+                {% else %}
+                  <span class="runner-act-icon-slot">
+                    <img class="runner-act-runner-icon-img" src="{% static 'imagen/runner-actividad.png' %}" alt="" aria-hidden="true">
+                  </span>
+                {% endif %}
+                {{ actividad.distance_km|default:"0" }}<span class="runner-act-dist-unit">km</span>
+              </div>
+
+              {% if actividad.is_trail %}
+                <div class="runner-act-stat">
+                  <div class="runner-act-stat-label">TIEMPO</div>
+                  <div class="runner-act-stat-value">{{ actividad.moving_hms|default:"-" }}</div>
+                </div>
+                <div class="runner-act-stat">
+                  <div class="runner-act-stat-label">DESNIVEL +</div>
+                  <div class="runner-act-stat-value">{{ actividad.elev_gain_text }}</div>
+                </div>
+              {% elif actividad.is_ride %}
+                <div class="runner-act-stat">
+                  <div class="runner-act-stat-label">TIEMPO</div>
+                  <div class="runner-act-stat-value">{{ actividad.moving_hms|default:"-" }}</div>
+                </div>
+                <div class="runner-act-stat">
+                  <div class="runner-act-stat-label">VEL. PROM</div>
+                  <div class="runner-act-stat-value">{{ actividad.speed_kmh }}</div>
+                </div>
+              {% else %}
+                <div class="runner-act-stat">
+                  <div class="runner-act-stat-label">TIEMPO</div>
+                  <div class="runner-act-stat-value">{{ actividad.moving_hms|default:"-" }}</div>
+                </div>
+                <div class="runner-act-stat">
+                  <div class="runner-act-stat-label">RITMO</div>
+                  <div class="runner-act-stat-value">{{ actividad.pace|default:"-" }}</div>
+                </div>
+              {% endif %}
+            </div>
+
+            {% if actividad.avg_hr_text != "-" %}
+              <div class="runner-act-hr">FC prom: <strong>{{ actividad.avg_hr_text }}</strong></div>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="runner-act-empty">No hay actividades Strava para este corredor.</p>
+    {% endif %}
+  </main>
+</div>
+
+<style>
+  .runner-act-page {
+    min-height: 100vh;
+    width: 100%;
+    padding: 0 14px 42px;
+    background: #000;
+    color: #fff;
+    box-sizing: border-box;
+  }
+
+  .runner-act-topbar {
+    width: min(900px, 100%);
+    margin: 0 auto;
+    padding: 22px 0 10px;
+    text-align: center;
+    position: relative;
+  }
+
+  .runner-act-topbar h1 {
+    margin: 0;
+    color: #f8c630;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  .runner-act-back {
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    opacity: .9;
+    position: absolute;
+    left: 0;
+    top: 26px;
+  }
+
+  .runner-act-back:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+
+  .runner-act-header {
+    width: min(720px, 100%);
+    margin: 16px auto 18px;
+    text-align: center;
+  }
+
+  .runner-act-name {
+    color: #f8c630;
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  .runner-act-group {
+    margin-top: 6px;
+    color: rgba(255,255,255,.76);
+    font-size: 14px;
+  }
+
+  .runner-act-wrap {
+    width: min(720px, 100%);
+    margin: 0 auto;
+  }
+
+  .runner-act-title {
+    margin: 0 0 14px;
+    color: #f8c630;
+    font-size: 20px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .runner-act-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .runner-activity-date {
+    margin-top: 6px;
+    color: rgba(255,255,255,.72);
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .runner-act-card {
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+
+  .runner-act-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 40px rgba(0,0,0,.45);
+  }
+
+  .runner-act-card-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: end;
+    gap: 0;
+  }
+
+  .runner-act-distance {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #fff;
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .runner-act-dist-unit {
+    margin-left: 2px;
+    font-size: 16px;
+    opacity: .9;
+  }
+
+  .runner-act-icon-slot {
+    width: 46px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    flex: 0 0 46px;
+    overflow: visible;
+  }
+
+  .runner-act-discipline-icon {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    display: inline-block;
+  }
+
+  .runner-act-runner-icon-img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    object-position: center;
+    display: inline-block;
+    transform: scale(2.1);
+    opacity: .95;
+  }
+
+  .runner-act-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: center;
+  }
+
+  .runner-act-stat-label {
+    color: rgba(255,255,255,.95);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+
+  .runner-act-stat-value {
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .runner-act-hr {
+    margin-top: 6px;
+    color: rgba(255,255,255,.92);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .runner-act-empty {
+    margin: 18px auto 0;
+    padding: 28px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.82);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    .runner-act-page {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .runner-act-topbar {
+      padding-top: 18px;
+    }
+
+    .runner-act-topbar h1 {
+      font-size: 22px;
+      padding: 0 74px;
+    }
+
+    .runner-act-back {
+      top: 21px;
+      font-size: 13px;
+    }
+
+    .runner-act-header {
+      margin-top: 12px;
+    }
+
+    .runner-act-name {
+      font-size: 21px;
+    }
+
+    .runner-act-card {
+      padding: 10px 12px;
+      background: linear-gradient(135deg, #2f6fdc 0%, #245dc0 100%);
+      box-shadow: 0 8px 22px rgba(0,0,0,.28);
+    }
+
+    .runner-activity-date {
+      font-size: 14px;
+    }
+
+    .runner-act-card-content {
+      gap: 16px;
+    }
+
+    .runner-act-distance {
+      font-size: 36px;
+    }
+
+    .runner-act-dist-unit {
+      font-size: 14px;
+    }
+
+    .runner-act-stat-label {
+      font-size: 9px;
+    }
+
+    .runner-act-stat-value {
+      font-size: 15px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .runner-act-page {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+
+    .runner-act-topbar h1 {
+      font-size: 20px;
+      padding: 0 66px;
+    }
+
+    .runner-act-name {
+      font-size: 20px;
+    }
+
+    .runner-act-group {
+      font-size: 13px;
+    }
+
+    .runner-activity-date {
+      font-size: 13px;
+    }
+
+    .runner-act-card {
+      padding: 10px 12px;
+      background: linear-gradient(135deg, #2b66cd 0%, #224fa9 100%);
+      box-shadow: 0 7px 18px rgba(0,0,0,.26);
+    }
+
+    .runner-act-card-content {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .runner-act-distance {
+      font-size: 34px;
+    }
+
+    .runner-act-runner-icon-img {
+      width: 24px;
+      height: 24px;
+      transform: scale(2);
+    }
+
+    .runner-act-stat-value {
+      font-size: 14px;
+    }
+  }
+</style>
+{% endblock %}

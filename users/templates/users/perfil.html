@@ -1,0 +1,144 @@
+{% extends "users/base.html" %}
+
+{% block title %}Perfil{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="perfil-shell">
+  <div class="page-topbar">
+    <a class="page-back" href="{% url 'home' %}">← Volver</a>
+    <h1>Perfil</h1>
+  </div>
+
+  <div class="profile-card">
+    <div class="profile-head">
+      <div>
+        <div class="profile-name">
+          {{ user.get_full_name|default:user.username }}
+        </div>
+        <div class="profile-username">@{{ user.username }}</div>
+
+        <div class="profile-group">
+          Grupo:
+          <strong>
+            {% if perfil_obj and perfil_obj.grupo %}{{ perfil_obj.grupo.nombre }}{% else %}-{% endif %}
+          </strong>
+        </div>
+        <h2 class="profile-section">Ritmos de entrenamiento</h2>
+
+        <h3 class="profile-section" style="font-size:1.05rem; margin-top:6px;">Runners</h3>
+        {% if ritmo_runners %}
+          <div class="ritmo-updated">Actualizado: {{ ritmo_runners.fecha|date:"j \\d\\e F \\d\\e Y" }}</div>
+
+          <div class="ritmos-control-table">
+            <div class="ritmo-head ritmo-head-control">
+              <div class="col-zona">Control</div>
+              <div class="col-rango"></div>
+            </div>
+            <div class="ritmo-row ctrl-1"><div class="col-zona">Distancia</div><div class="col-rango">{{ ritmo_runners.distancia_test_m }} m</div></div>
+            <div class="ritmo-row ctrl-2"><div class="col-zona">Tiempo</div><div class="col-rango">{{ ritmo_runners.tiempo_test|default:"—" }}</div></div>
+            <div class="ritmo-row ctrl-3"><div class="col-zona">Paso VO₂max</div><div class="col-rango">{{ ritmo_runners.paso_vo2max|default:"—" }}</div></div>
+            <div class="ritmo-row ctrl-4"><div class="col-zona">VO₂max</div><div class="col-rango">{{ ritmo_runners.vo2max|default:"—" }}</div></div>
+          </div>
+
+          <div class="ritmos-table">
+            <div class="ritmo-head">
+              <div class="col-zona">Zona de entrenamiento</div>
+              <div class="col-rango">Ritmo (min/km)</div>
+            </div>
+            <div class="ritmo-row reg"><div class="col-zona">REG (Regenerativo)</div><div class="col-rango">{{ ritmo_runners.reg_min }} - {{ ritmo_runners.reg_max }}</div></div>
+            <div class="ritmo-row r1"><div class="col-zona">AERÓBICO 1 (R1)</div><div class="col-rango">{{ ritmo_runners.r1_min }} - {{ ritmo_runners.r1_max }}</div></div>
+            <div class="ritmo-row r2"><div class="col-zona">AERÓBICO 2 (R2)</div><div class="col-rango">{{ ritmo_runners.r2_min }} - {{ ritmo_runners.r2_max }}</div></div>
+            <div class="ritmo-row r3"><div class="col-zona">AERÓBICO 3 (R3)</div><div class="col-rango">{{ ritmo_runners.r3_min }} - {{ ritmo_runners.r3_max }}</div></div>
+            <div class="ritmo-row ul"><div class="col-zona">UMBRAL LÁCTICO (UL)</div><div class="col-rango">{{ ritmo_runners.ul_min }} - {{ ritmo_runners.ul_max }}</div></div>
+            <div class="ritmo-row ca"><div class="col-zona">CAPACIDAD AERÓBICA VO₂MAX (CA)</div><div class="col-rango">{{ ritmo_runners.ca_min }} - {{ ritmo_runners.ca_max }}</div></div>
+            <div class="ritmo-row can"><div class="col-zona">CAPACIDAD SUPRA VO₂MAX (CAN)</div><div class="col-rango">{{ ritmo_runners.can_min }} - {{ ritmo_runners.can_max }}</div></div>
+          </div>
+
+          {% if ritmos_runners_prev %}
+          <details class="ritmo-history-box">
+            <summary>Historial Runners ({{ ritmos_runners_prev|length }})</summary>
+            <div class="ritmo-history-content">
+              <div class="ritmo-history-list">
+                {% for ritmo in ritmos_runners_prev %}
+                  <div class="ritmo-history-item">
+                    <div class="ritmo-history-date">{{ ritmo.fecha|date:"j \d\e F \d\e Y" }}</div>
+                    <div class="ritmo-history-line">Distancia: {{ ritmo.distancia_test_m }} m · Tiempo: {{ ritmo.tiempo_test|default:"—" }} · Paso VO₂max: {{ ritmo.paso_vo2max|default:"—" }} · VO₂max: {{ ritmo.vo2max|default:"—" }}</div>
+                    <div class="ritmo-history-line">REG: {{ ritmo.reg_min }} - {{ ritmo.reg_max }} · R1: {{ ritmo.r1_min }} - {{ ritmo.r1_max }} · R2: {{ ritmo.r2_min }} - {{ ritmo.r2_max }} · R3: {{ ritmo.r3_min }} - {{ ritmo.r3_max }} · UL: {{ ritmo.ul_min }} - {{ ritmo.ul_max }} · CA: {{ ritmo.ca_min }} - {{ ritmo.ca_max }} · CAN: {{ ritmo.can_min }} - {{ ritmo.can_max }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </details>
+          {% endif %}
+        {% else %}
+          <div class="ritmos-empty">Aún no tienes ritmos Runners asignados.</div>
+        {% endif %}
+
+        <h3 class="profile-section" style="font-size:1.05rem; margin-top:16px;">Trail</h3>
+        {% if ritmo_trail %}
+          <div class="ritmo-updated">Actualizado: {{ ritmo_trail.fecha|date:"j \\d\\e F \\d\\e Y" }}</div>
+
+          <div class="ritmos-control-table">
+            <div class="ritmo-head ritmo-head-control">
+              <div class="col-zona">Control</div>
+              <div class="col-rango"></div>
+            </div>
+            <div class="ritmo-row ctrl-1"><div class="col-zona">Distancia</div><div class="col-rango">{{ ritmo_trail.distancia_test_m }} m</div></div>
+            <div class="ritmo-row ctrl-2"><div class="col-zona">Tiempo</div><div class="col-rango">{{ ritmo_trail.tiempo_test|default:"—" }}</div></div>
+            <div class="ritmo-row ctrl-3"><div class="col-zona">FC Máxima (PPM)</div><div class="col-rango">{{ ritmo_trail.fc_maxima_ppm|default:"—" }}</div></div>
+          </div>
+
+          <div class="ritmos-table">
+            <div class="ritmo-head">
+              <div class="col-zona">Zona de entrenamiento</div>
+              <div class="col-rango">FC (ppm)</div>
+            </div>
+            <div class="ritmo-row reg"><div class="col-zona">Zona 0</div><div class="col-rango">{{ ritmo_trail.reg_min }} - {{ ritmo_trail.reg_max }}</div></div>
+            <div class="ritmo-row r1"><div class="col-zona">Zona 1</div><div class="col-rango">{{ ritmo_trail.r1_min }} - {{ ritmo_trail.r1_max }}</div></div>
+            <div class="ritmo-row r2"><div class="col-zona">Zona 2</div><div class="col-rango">{{ ritmo_trail.r2_min }} - {{ ritmo_trail.r2_max }}</div></div>
+            <div class="ritmo-row r3"><div class="col-zona">Zona 3</div><div class="col-rango">{{ ritmo_trail.r3_min }} - {{ ritmo_trail.r3_max }}</div></div>
+            <div class="ritmo-row ul"><div class="col-zona">Zona 4</div><div class="col-rango">{{ ritmo_trail.ul_min }} - {{ ritmo_trail.ul_max }}</div></div>
+            <div class="ritmo-row ca"><div class="col-zona">Zona 5</div><div class="col-rango">{{ ritmo_trail.ca_min }} - {{ ritmo_trail.ca_max }}</div></div>
+          </div>
+
+          {% if ritmos_trail_prev %}
+          <details class="ritmo-history-box">
+            <summary>Historial Trail ({{ ritmos_trail_prev|length }})</summary>
+            <div class="ritmo-history-content">
+              <div class="ritmo-history-list">
+                {% for ritmo in ritmos_trail_prev %}
+                  <div class="ritmo-history-item">
+                    <div class="ritmo-history-date">{{ ritmo.fecha|date:"j \d\e F \d\e Y" }}</div>
+                    <div class="ritmo-history-line">Distancia: {{ ritmo.distancia_test_m }} m · Tiempo: {{ ritmo.tiempo_test|default:"—" }} · FC Máx: {{ ritmo.fc_maxima_ppm|default:"—" }}</div>
+                    <div class="ritmo-history-line">Z0: {{ ritmo.reg_min }} - {{ ritmo.reg_max }} · Z1: {{ ritmo.r1_min }} - {{ ritmo.r1_max }} · Z2: {{ ritmo.r2_min }} - {{ ritmo.r2_max }} · Z3: {{ ritmo.r3_min }} - {{ ritmo.r3_max }} · Z4: {{ ritmo.ul_min }} - {{ ritmo.ul_max }} · Z5: {{ ritmo.ca_min }} - {{ ritmo.ca_max }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </details>
+          {% endif %}
+        {% else %}
+          <div class="ritmos-empty">Aún no tienes ritmos Trail asignados.</div>
+        {% endif %}
+
+        <div class="metas-table">
+          <div class="ritmo-head ritmo-head-meta">
+            <div class="col-zona">Metas</div>
+            <div class="col-rango"></div>
+          </div>
+          <div class="ritmo-row meta-1">
+            <div class="col-zona">Meta actual</div>
+            <div class="col-rango">{% if perfil_obj.meta_actual %}{{ perfil_obj.meta_actual }}{% else %}—{% endif %}</div>
+          </div>
+          <div class="ritmo-row meta-2">
+            <div class="col-zona">Mejor marca</div>
+            <div class="col-rango">{% if perfil_obj.mejor_marca %}{{ perfil_obj.mejor_marca }}{% else %}—{% endif %}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

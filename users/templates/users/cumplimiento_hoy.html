@@ -1,0 +1,130 @@
+{% extends "users/base.html" %}
+
+{% block title %}Cumplimiento{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar cumplimiento-topbar">
+  <a class="page-back" href="{% url 'administracion' %}">← Volver</a>
+  <h1>Cumplimiento</h1>
+</div>
+<p class="cumplimiento-subdate">
+  Fecha: {{ today|date:"l j \\d\\e F" }}
+  {% if not es_hoy %}(seleccionada){% endif %}
+</p>
+
+<div class="profile-card">
+  <form method="get" class="form-card form-compact">
+    <div class="form-row-horizontal">
+      <div class="form-field-compact">
+        <label>Fecha</label>
+        <input id="cumplimiento-fecha" type="date" name="fecha" value="{{ fecha|date:'Y-m-d' }}" onclick="if (this.showPicker) this.showPicker()">
+      </div>
+      <div class="form-field-compact">
+        <label>Grupo</label>
+        <select name="grupo">
+          <option value="">Todos los grupos con plan en la fecha</option>
+          {% for g in grupos %}
+            <option value="{{ g.id }}" {% if grupo_id == g.id|stringformat:"s" %}selected{% endif %}>
+              {{ g.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="page-cta btn-compact">Filtrar</button>
+    </div>
+  </form>
+</div>
+
+{% if grupos_data %}
+  <div class="cards-grid list-vertical">
+    <div class="runner-card cumplimiento-group-card">
+      <div class="runner-head">
+        <div class="runner-avatar">🌐</div>
+        <div class="runner-info">
+          <div class="runner-name">TODOS</div>
+          <div class="runner-meta">
+            <span class="runner-badge">{{ today|date:"l j \\d\\e F" }}</span>
+            <span class="runner-badge muted">{{ totales_cumplimiento.total_realizadas }}/{{ totales_cumplimiento.total_corredores }} realizadas</span>
+          </div>
+        </div>
+      </div>
+      <div class="cumplimiento-actions">
+        <a
+          class="btn-mini blue"
+          href="{% url 'cumplimiento_cumplidos_todos' %}?fecha={{ today|date:'Y-m-d' }}{% if grupo_id %}&grupo={{ grupo_id }}{% endif %}"
+        >
+          Cumplidos
+        </a>
+      </div>
+    </div>
+
+    {% for data in grupos_data %}
+      <div class="runner-card cumplimiento-group-card">
+        <div class="runner-head">
+          <div class="runner-avatar">📋</div>
+          <div class="runner-info">
+            <div class="runner-name">{{ data.grupo.nombre }}</div>
+            <div class="runner-meta">
+              <span class="runner-badge">{{ today|date:"l j \\d\\e F" }}</span>
+              <span class="runner-badge muted">{{ data.total_realizadas }}/{{ data.total_corredores }} realizadas</span>
+            </div>
+          </div>
+        </div>
+
+        {% if data.estado == "con_plan_con_corredores" %}
+          <div class="cumplimiento-actions">
+            <a
+              class="btn-mini blue"
+              href="{% url 'cumplimiento_cumplidos' data.grupo.id %}?fecha={{ today|date:'Y-m-d' }}"
+            >
+              Cumplidos
+            </a>
+          </div>
+        {% elif data.estado == "con_plan_sin_corredores" %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <div class="empty-title">
+      {% if es_hoy %}
+        No hay entrenamientos para hoy
+      {% else %}
+        No hay entrenamientos para la fecha seleccionada
+      {% endif %}
+    </div>
+    <p class="cumplimiento-empty-help">
+      {% if grupo_seleccionado %}
+        El grupo {{ grupo_seleccionado.nombre }} no tiene plan para esta fecha.
+      {% elif es_hoy %}
+        Cuando exista plan del día, aquí verás el cumplimiento por grupo.
+      {% else %}
+        Cambia la fecha o el grupo para revisar otro día.
+      {% endif %}
+    </p>
+  </div>
+{% endif %}
+
+<script>
+  (function () {
+    const fechaInput = document.getElementById("cumplimiento-fecha");
+    if (!fechaInput) {
+      return;
+    }
+
+    const openPicker = () => {
+      if (typeof fechaInput.showPicker === "function") {
+        try {
+          fechaInput.showPicker();
+        } catch (error) {
+        }
+      }
+    };
+
+    fechaInput.addEventListener("click", openPicker);
+    fechaInput.addEventListener("focus", openPicker);
+  })();
+</script>
+{% endblock %}

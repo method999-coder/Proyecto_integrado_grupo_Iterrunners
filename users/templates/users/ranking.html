@@ -1,0 +1,87 @@
+{% extends "users/base.html" %}
+
+{% block title %}Ranking | Runners App{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <div class="page-topbar">
+    <a class="page-back" href="{% url 'home' %}">← Volver</a>
+    <h1 class="ranking-page-title">Ranking {{ distancia_actual_label }}</h1>
+  </div>
+
+  <div class="plan-hoy" style="text-align:left; margin-top:12px;">
+    <p class="plan-desc" style="margin:0;">
+      <strong>Alcance:</strong> {{ scope_label }}
+    </p>
+    <p class="plan-date" style="margin-top:6px;">
+      Ordenado por mejor tiempo (desempate: última marca).
+    </p>
+  </div>
+
+  <div class="form-actions" style="justify-content:center; margin:16px 0 18px;">
+    {% for distancia in distancias %}
+      <a
+        class="btn-mini {% if distancia.0 == distancia_actual %}blue{% endif %}"
+        href="{% url 'ranking' %}?distancia={{ distancia.0 }}"
+      >
+        {{ distancia.1 }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <p class="plan-date" style="text-align:center; margin: 0 0 14px;">
+    Ranking basado en controles y marcas publicadas por el corredor; puede incluir datos sincronizados con Strava.
+  </p>
+
+  {% if filas_ranking %}
+    <div class="cards-grid list-vertical">
+      {% for fila in filas_ranking %}
+        <div class="runner-card">
+          <div class="runner-head" style="justify-content:flex-start;">
+            <div class="runner-avatar">#{{ fila.posicion }}</div>
+            <div class="runner-info">
+              <div class="runner-name">{{ fila.nombre }}</div>
+              <div class="runner-meta">
+                {% if fila.marca_tiempo %}
+                  <span class="runner-badge">⏱ Tiempo: {{ fila.marca_tiempo }}</span>
+                {% endif %}
+                <span class="runner-badge muted">Última: {{ fila.ultima_marca|date:"d/m/Y" }}</span>
+                {% if fila.marca_distancia_km %}
+                  <span class="runner-badge muted">Dist: {{ fila.marca_distancia_km }} km</span>
+                {% endif %}
+                {% if fila.marca_ritmo and fila.marca_ritmo != "-" %}
+                  <span class="runner-badge muted">Ritmo: {{ fila.marca_ritmo }}</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state" style="margin-top: 10px;">
+      <div class="empty-title">Sin marcas publicadas</div>
+      <p class="plan-desc" style="margin:0;">Aún no hay registros publicados para {{ distancia_actual_label }}.</p>
+    </div>
+  {% endif %}
+
+  <p class="plan-desc" style="opacity:.72; margin-top: 12px; text-align:center; font-size:12px;">
+    Datos de actividad proporcionados por
+    <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer" style="color:#dbe6ff; text-decoration:none;">Strava</a>
+    ·
+    Compatible con Strava
+    ·
+    <a href="{% url 'privacy_policy' %}" style="color:#dbe6ff; text-decoration:none;">Política de Privacidad</a>
+  </p>
+</main>
+
+<style>
+  @media (max-width: 640px) {
+    .ranking-page-title {
+      font-size: 34px;
+      line-height: 1.1;
+    }
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "users/base.html" %}
+{% block title %}Mi grupo{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'home' %}">← Volver</a>
+  <h1>Mi grupo</h1>
+</div>
+
+{% if not perfil %}
+  <div class="profile-card">
+    <div style="text-align: center; padding: 40px 20px; color: #999;">
+      <div style="font-size: 48px; margin-bottom: 16px;">👤</div>
+      <div style="font-size: 16px; font-weight: 600;">No existe perfil asociado a tu usuario</div>
+    </div>
+  </div>
+
+{% elif not grupo %}
+  <div class="profile-card">
+    <div style="text-align: center; padding: 40px 20px; color: #999;">
+      <div style="font-size: 48px; margin-bottom: 16px;">👥</div>
+      <div style="font-size: 16px; font-weight: 600;">Aún no tienes un grupo asignado</div>
+      <div style="font-size: 14px; opacity: 0.8; margin-top: 8px;">Contacta con tu entrenador</div>
+    </div>
+  </div>
+
+{% else %}
+  <div class="profile-card mi-grupo-shell">
+    <div style="text-align: center; padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.10);">
+      <div style="font-size: 14px; color: #f5f5f5; opacity: 0.85; margin-bottom: 8px;">Grupo</div>
+      <div class="mi-grupo-nombre" style="font-size: 18px; color: #ffeb3b; font-weight: 900; margin-bottom: 8px;">
+        {{ grupo.nombre }}
+      </div>
+      {% if grupo.descripcion %}
+        <div style="font-size: 14px; color: #f5f5f5; opacity: 0.85; margin-top: 8px;">
+          {{ grupo.descripcion }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="padding: 20px 20px 10px 20px;">
+      <h2 style="font-size: 18px; color: #ffeb3b; font-weight: 900; margin-bottom: 16px;">
+        Compañeros ({{ companeros|length }})
+      </h2>
+
+      {% if companeros %}
+        <div class="mi-grupo-list">
+          {% for p in companeros %}
+            <div class="mi-grupo-item">
+              <div class="mi-grupo-avatar">
+                {{ p.nombre|slice:":1"|upper }}
+              </div>
+              <div style="flex: 1;">
+                <div style="font-size: 16px; font-weight: 700; color: #fff;">{{ p.nombre }}</div>
+                <div style="font-size: 13px; color: #999; margin-top: 2px;">@{{ p.usuario.username }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 40px 20px; color: #999;">
+          <div style="font-size: 14px; opacity: 0.8;">No hay otros compañeros en este grupo</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<style>
+  .mi-grupo-shell {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
+  .mi-grupo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 860px;
+  }
+
+  .mi-grupo-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
+  }
+
+  .mi-grupo-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #ffeb3b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    color: #000;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .mi-grupo-nombre {
+      font-size: 17px !important;
+    }
+
+    .mi-grupo-item {
+      padding: 11px 12px;
+      gap: 10px;
+    }
+
+    .mi-grupo-avatar {
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+    }
+  }
+</style>
+{% endblock %}

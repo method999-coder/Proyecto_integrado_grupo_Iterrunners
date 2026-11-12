@@ -1,0 +1,75 @@
+{% extends "users/base.html" %}
+
+{% block title %}Cumplidos{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="cumplimiento-cumplidos-shell">
+  <div class="page-topbar">
+    <a class="page-back" href="{% url 'cumplimiento_hoy' %}?fecha={{ fecha|date:'Y-m-d' }}">← Volver</a>
+    <h1>Cumplidos</h1>
+  </div>
+
+  <p class="cumplimiento-subdate">Grupo: {% if titulo_grupo %}{{ titulo_grupo }}{% elif grupo %}{{ grupo.nombre }}{% else %}-{% endif %} · Fecha: {{ fecha|date:"l j \\d\\e F" }}</p>
+
+  {% if filas %}
+    <div class="cards-grid list-vertical cumplimiento-cards-wrap">
+      {% for fila in filas %}
+        <div class="detail-card cumplimiento-item-card cumplimiento-item-card-full">
+          <div class="cumplimiento-item-head">
+            <div class="cumplimiento-item-name cumplimiento-item-name-check">
+              <span class="cumplimiento-check" aria-label="Realizada">✅</span>
+              <span>
+                {{ fila.nombre }}
+                {% if mostrar_grupo_en_fila and fila.grupo_nombre %}
+                  <span class="cumplimiento-fila-grupo">· {{ fila.grupo_nombre }}</span>
+                {% endif %}
+              </span>
+            </div>
+
+            {% if fila.comentario %}
+              <details class="cumplimiento-comment-expand">
+                <summary aria-label="Ver comentario">💬</summary>
+                <div class="detail-desc cumplimiento-comment-full">{{ fila.comentario }}</div>
+              </details>
+            {% endif %}
+          </div>
+
+          {% if fila.actividad_tiene_resumen %}
+            {% if fila.actividad_total > 1 %}
+              {% if fila.actividades_dia %}
+                <div class="cumplimiento-actividad-list">
+                  {% for actividad in fila.actividades_dia %}
+                    <div class="detail-desc cumplimiento-actividad-item muted">
+                      {{ actividad.nombre }} · {{ actividad.km }} km · {{ actividad.tiempo }} · {{ actividad.ritmo }}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <div class="detail-desc cumplimiento-actividad-total muted">
+                <strong>Total actividades:</strong> {{ fila.actividad_total }} · {{ fila.actividad_km }} km · {{ fila.actividad_tiempo }} · {{ fila.actividad_ritmo }}
+              </div>
+            {% else %}
+              {% for actividad in fila.actividades_dia %}
+                <div class="detail-desc cumplimiento-actividad-item muted">
+                  {{ actividad.nombre }} · {{ actividad.km }} km · {{ actividad.tiempo }} · {{ actividad.ritmo }}
+                </div>
+              {% empty %}
+                <div class="detail-desc cumplimiento-actividad-item muted">
+                  {{ fila.actividad_km }} km · {{ fila.actividad_tiempo }} · {{ fila.actividad_ritmo }}
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% elif not fila.comentario %}
+            <div class="detail-desc cumplimiento-comment muted">Sin comentario ni actividad registrada</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-title">No hay corredores cumplidos en este grupo</div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

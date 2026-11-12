@@ -1,0 +1,333 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block title %}Actividad | Iter Run{% endblock %}
+
+{% block content %}
+<div style="background: #000000; min-height: 100vh; width: 100%; padding-bottom: 40px;">
+  <div class="act-user-header">
+    {{ nombre_completo }}
+  </div>
+  
+  <div class="act-wrap">
+    <h2 class="act-title">Actividades</h2>
+    <a class="act-back" href="{% url 'home' %}">← Volver</a>
+  </div>
+
+  <p class="act-consent-note">
+    Las actividades nuevas de Strava se publican automáticamente en el feed del club.
+  </p>
+
+  {% if actividades %}
+    <div class="act-list">
+      {% for a in actividades %}
+        {% if a.date_short %}
+          <div class="activity-date">{{ a.date_short }}</div>
+        {% endif %}
+        <div class="act-item-wrap">
+          <div class="act-card">
+            <div class="act-card-head">
+              <form method="post" action="{% url 'strava_publish_ranking' a.id %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="act-feed-link">Subir al ranking</button>
+              </form>
+            </div>
+            <div class="act-card-content">
+              <div class="act-distance">
+                {% if a.is_trail %}
+                  <span class="act-icon-slot"><img class="act-discipline-icon" src="{% static 'imagen/icon-trail.svg' %}" alt="Trail" aria-hidden="true"></span>
+                {% elif a.is_ride %}
+                  <span class="act-icon-slot"><img class="act-discipline-icon" src="{% static 'imagen/icon-ride.svg' %}" alt="Bici" aria-hidden="true"></span>
+                {% else %}
+                  <span class="act-icon-slot"><img class="act-runner-icon-img" src="{% static 'imagen/runner-actividad.png' %}" alt="Run" aria-hidden="true"></span>
+                {% endif %}
+                {{ a.distance_km|default:"0" }}<span class="act-dist-unit">km</span>
+              </div>
+              {% if a.is_trail %}
+                <div class="act-stat">
+                  <div class="act-stat-label">TIEMPO</div>
+                  <div class="act-stat-value">{{ a.moving_hms|default:"-" }}</div>
+                </div>
+                <div class="act-stat">
+                  <div class="act-stat-label">DESNIVEL +</div>
+                  <div class="act-stat-value">{{ a.elev_gain_text }}</div>
+                </div>
+              {% elif a.is_ride %}
+                <div class="act-stat">
+                  <div class="act-stat-label">TIEMPO</div>
+                  <div class="act-stat-value">{{ a.moving_hms|default:"-" }}</div>
+                </div>
+                <div class="act-stat">
+                  <div class="act-stat-label">VEL. PROM</div>
+                  <div class="act-stat-value">{{ a.speed_kmh }}</div>
+                </div>
+              {% else %}
+                <div class="act-stat">
+                  <div class="act-stat-label">TIEMPO</div>
+                  <div class="act-stat-value">{{ a.moving_hms|default:"-" }}</div>
+                </div>
+                <div class="act-stat">
+                  <div class="act-stat-label">RITMO</div>
+                  <div class="act-stat-value">{{ a.pace|default:"-" }}</div>
+                </div>
+              {% endif %}
+            </div>
+            {% if a.avg_hr_text != "-" %}
+              <div class="act-hr-row">FC prom: <strong>{{ a.avg_hr_text }}</strong></div>
+            {% endif %}
+            </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="act-empty">No hay actividades para mostrar.</p>
+  {% endif %}
+
+  <div class="act-legal">
+    Datos de actividad proporcionados por
+    <a href="https://www.strava.com" target="_blank" rel="noopener noreferrer">Strava</a>
+    ·
+    Compatible con Strava
+    ·
+    <a href="{% url 'privacy_policy' %}">Política de Privacidad</a>
+  </div>
+  </div>
+</div>
+
+<style>
+  .act-user-header{
+    text-align:center;
+    padding:24px 14px 8px;
+    font-size:22px;
+    font-family: inherit;
+    font-weight:400;
+    color:#f8c630;
+    letter-spacing:.5px;
+  }
+
+  .act-wrap{max-width:900px;margin:24px auto;padding:0 14px}
+  .act-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;gap:10px}
+  .act-title{margin:0;font-size:22px;font-family:inherit;font-weight:400;color:#f8c630}
+  .act-back{color:#FFFFFF;text-decoration:none;opacity:.9;font-size:14px}
+  .act-back:hover{opacity:1;text-decoration:underline}
+
+  .act-list{display:flex;flex-direction:column;gap:6px;max-width:720px;margin:0 auto}
+
+  .act-consent-note{
+    max-width:720px;
+    margin:0 auto 10px;
+    padding:0 14px;
+    font-size:12px;
+    color:rgba(255,255,255,.76);
+    text-align:center;
+  }
+  
+  .activity-date{
+    font-size:15px;
+    color:rgba(255,255,255,0.7);
+    font-weight:600;
+    padding:0 0 4px 0;
+    margin-top:6px;
+  }
+  
+  .act-card{
+    border-radius:14px;
+    padding:12px 14px;
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+
+  .act-card:hover{
+    transform: translateY(-4px);
+    box-shadow: 0 14px 40px rgba(0,0,0,.45);
+  }
+
+  .act-card-title{
+    font-size:16px;
+    font-weight:bold;
+    color:#fff;
+    margin-bottom:2px;
+  }
+
+  .act-card-head{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:10px;
+    margin-bottom:2px;
+  }
+
+  .act-card-location{
+    font-size:12px;
+    color:rgba(255,255,255,0.8);
+    margin-bottom:8px;
+  }
+
+  .act-card-content{
+    display:grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap:0;
+    align-items:flex-end;
+  }
+
+  .act-hr-row{
+    margin-top:6px;
+    font-size:12px;
+    color:rgba(255,255,255,.92);
+  }
+
+  .act-distance{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+    justify-content:center;
+  }
+
+  .act-distance{
+    font-size:42px;
+    font-weight:900;
+    color:#fff;
+    line-height:1;
+  }
+
+  .act-dist-unit{
+    font-size:16px;
+    margin-left:2px;
+    opacity:.9;
+  }
+
+  .act-runner-icon{
+    font-size:24px;
+    line-height:1;
+    filter: grayscale(1) brightness(0.35);
+    transform: translateY(-2px);
+  }
+
+  .act-discipline-icon{
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    object-position: center;
+    display: inline-block;
+    opacity: 0.98;
+  }
+
+  .act-runner-icon-img{
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    object-position: center;
+    display: inline-block;
+    transform: scale(2.6);
+    opacity: 0.95;
+  }
+
+  .act-icon-slot{
+    width: 46px;
+    height: 46px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    margin-right: 10px;
+    flex: 0 0 46px;
+    overflow: visible;
+  }
+
+  .act-stats{
+    flex:1;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:12px;
+  }
+
+  .act-stat{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    text-align:center;
+  }
+
+  .act-stat-label{
+    font-size:10px;
+    font-weight:700;
+    color:rgba(255,255,255,0.95);
+    letter-spacing:.5px;
+  }
+
+  .act-stat-value{
+    font-size:17px;
+    font-weight:700;
+    color:#fff;
+  }
+
+  .act-empty{color:#ddd;margin-top:18px;opacity:.9;text-align:center;padding:30px;background:rgba(0,0,0,0.2);border-radius:12px}
+
+  .act-feed-link{
+    background:transparent;
+    border:none;
+    color:#111;
+    font-weight:700;
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:0;
+    margin:0;
+    white-space:nowrap;
+  }
+
+  .act-legal{
+    max-width:720px;
+    margin:18px auto 0;
+    padding:0 12px;
+    font-size:12px;
+    color:rgba(255,255,255,.72);
+    text-align:center;
+  }
+
+  .act-legal a{
+    color:rgba(255,255,255,.88);
+    text-decoration:none;
+  }
+
+  .act-legal a:hover{
+    text-decoration:underline;
+  }
+
+  @media (max-width: 720px){
+    .act-user-header{font-size:22px;padding:18px 14px 6px}
+    .act-title{font-size:22px}
+    .act-list{padding:0 12px}
+    .activity-date{font-size:14px}
+    .act-card{padding:10px 12px;background:linear-gradient(135deg, #2f6fdc 0%, #245dc0 100%);box-shadow:0 8px 22px rgba(0,0,0,.28)}
+    .act-card-title{font-size:15px;margin-bottom:2px}
+    .act-card-head{gap:8px}
+    .act-card-location{font-size:11px;margin-bottom:6px}
+    .act-card-content{gap:20px}
+    .act-distance{font-size:36px}
+    .act-dist-unit{font-size:14px}
+    .act-stat-label{font-size:9px}
+    .act-stat-value{font-size:15px}
+    .act-feed-link{font-size:11px}
+  }
+
+  @media (max-width: 480px){
+    .act-user-header{font-size:22px;padding:16px 12px 4px}
+    .act-title{font-size:22px}
+    .activity-date{font-size:13px}
+    .act-list{padding:0 14px}
+    .act-card{padding:10px 12px;background:linear-gradient(135deg, #2b66cd 0%, #224fa9 100%);box-shadow:0 7px 18px rgba(0,0,0,.26)}
+    .act-card-title{font-size:14px;margin-bottom:1px}
+    .act-card-location{font-size:10px;margin-bottom:6px}
+    .act-card-content{gap:16px}
+    .act-distance{font-size:32px}
+    .act-runner-icon-img{width:22px;height:22px;object-position:left center;transform:translateX(-1px) translateY(3px) scale(3.1);margin-right:5px}
+    .act-dist-unit{font-size:12px}
+    .act-stat-label{font-size:9px}
+    .act-stat-value{font-size:14px}
+    .act-stats{gap:10px}
+  }
+</style>
+{% endblock %}

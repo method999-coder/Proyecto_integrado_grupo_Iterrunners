@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Runners App{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Runners App">
+  <meta name="theme-color" content="#000000">
+  <link rel="manifest" href="{% static 'manifest.webmanifest' %}?v=5">
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'imagen/icono-192.png' %}?v=5">
+  <link rel="apple-touch-icon" href="{% static 'imagen/apple-touch-icon-180.png' %}">
+  <link rel="apple-touch-icon" sizes="120x120" href="{% static 'imagen/apple-touch-icon-120.png' %}">
+  <link rel="apple-touch-icon" sizes="152x152" href="{% static 'imagen/apple-touch-icon-152.png' %}">
+  <link rel="apple-touch-icon" sizes="167x167" href="{% static 'imagen/apple-touch-icon-167.png' %}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'imagen/apple-touch-icon-180.png' %}">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=148">
+</head>
+
+<body class="{% block body_class %}{% endblock %}">
+
+{% if messages %}
+  <div class="messages-wrap">
+    {% for message in messages %}
+      <div class="msg msg-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+{% endif %}
+  {% block content %}{% endblock %}
+
+<script>
+  (function () {
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (!isMobile) return;
+
+    const hasTopBackLink = document.querySelector("a.page-back, a.admin-back, a.act-back");
+    if (!hasTopBackLink) return;
+
+    const normalizePath = (path) => (path || "/").replace(/\/+$/, "") || "/";
+
+    // Same-path navigation (only query/hash changes) should replace history entries on mobile.
+    document.addEventListener(
+      "click",
+      function (event) {
+        const anchor = event.target.closest("a[href]");
+        if (!anchor) return;
+        if ((anchor.getAttribute("target") || "").toLowerCase() === "_blank") return;
+        if (anchor.hasAttribute("download")) return;
+
+        const rawHref = anchor.getAttribute("href") || "";
+        if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("javascript:")) return;
+
+        let url;
+        try {
+          url = new URL(anchor.href, window.location.origin);
+        } catch (error) {
+          return;
+        }
+
+        if (url.origin !== window.location.origin) return;
+
+        const currentPath = normalizePath(window.location.pathname);
+        const targetPath = normalizePath(url.pathname);
+        const isSamePath = currentPath === targetPath;
+        const changesState = url.search !== window.location.search || url.hash !== window.location.hash;
+
+        if (!isSamePath || !changesState) return;
+
+        event.preventDefault();
+        window.location.replace(url.toString());
+      },
+      true
+    );
+
+    // Apply the same history behavior to GET forms posting to the same path.
+    document.addEventListener("submit", function (event) {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+
+      const method = (form.getAttribute("method") || "get").toLowerCase();
+      if (method !== "get") return;
+
+      const actionAttr = form.getAttribute("action") || window.location.href;
+
+      let actionUrl;
+      try {
+        actionUrl = new URL(actionAttr, window.location.origin);
+      } catch (error) {
+        return;
+      }
+
+      if (actionUrl.origin !== window.location.origin) return;
+
+      const currentPath = normalizePath(window.location.pathname);
+      const actionPath = normalizePath(actionUrl.pathname);
+      if (currentPath !== actionPath) return;
+
+      event.preventDefault();
+
+      const params = new URLSearchParams(new FormData(form));
+      const targetUrl = `${actionUrl.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+      window.location.replace(targetUrl);
+    });
+  })();
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("/service-worker.js");
+    });
+  }
+</script>
+</body>
+</html>
+

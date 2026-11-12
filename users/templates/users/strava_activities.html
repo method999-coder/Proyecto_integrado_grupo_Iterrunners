@@ -1,0 +1,219 @@
+{% extends "users/base.html" %}
+
+{% block title %}Actividades Strava{% endblock %}
+{% block body_class %}admin-panel{% endblock %}
+
+{% block content %}
+<div class="admin-topbar admin-mobile-topbar">
+  <a class="admin-back" href="{% url 'administracion' %}">← Volver</a>
+  <h1>Actividades Strava</h1>
+</div>
+
+<main class="strava-runners-wrap">
+  {% if club %}
+    <p class="strava-runners-club">Club: {{ club.nombre }}</p>
+  {% endif %}
+
+  {% if corredores %}
+    <div class="strava-runners-search" role="search">
+      <span class="strava-runners-search-icon" aria-hidden="true">⌕</span>
+      <input
+        id="stravaRunnerSearch"
+        type="search"
+        autocomplete="off"
+        placeholder="Buscar por nombre, apellido o grupo"
+        aria-label="Buscar corredores"
+      >
+    </div>
+
+    <div class="strava-runners-list" id="stravaRunnerList">
+      {% for corredor in corredores %}
+        <article
+          class="strava-runner-card"
+          data-search="{{ corredor.nombre|default:''|lower }} {{ corredor.apellido|default:corredor.usuario.last_name|default:''|lower }} {{ corredor.grupo.nombre|default:'sin grupo'|lower }}"
+        >
+          <div class="strava-runner-info">
+            <div class="strava-runner-name">
+              {{ corredor.nombre }}{% if corredor.apellido %} {{ corredor.apellido }}{% elif corredor.usuario.last_name %} {{ corredor.usuario.last_name }}{% endif %}
+            </div>
+            <div class="strava-runner-group">
+              Grupo: {{ corredor.grupo.nombre|default:"Sin grupo" }}
+            </div>
+          </div>
+          <a class="btn-mini strava-runner-link" href="{% url 'strava_activities_runner_detail' corredor.id %}">
+            Ver actividades
+          </a>
+        </article>
+      {% endfor %}
+    </div>
+
+    <p class="strava-runners-empty" id="stravaRunnerNoResults" hidden>No se encontraron corredores.</p>
+  {% else %}
+    <p class="strava-runners-empty">No hay corredores para mostrar en tu club.</p>
+  {% endif %}
+</main>
+
+<style>
+  .strava-runners-wrap {
+    width: min(900px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 0 0 42px;
+    box-sizing: border-box;
+  }
+
+  .strava-runners-club {
+    max-width: 720px;
+    margin: 0 auto 14px;
+    color: rgba(255,255,255,.82);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  .strava-runners-search {
+    max-width: 720px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .strava-runners-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255,255,255,.72);
+    font-size: 20px;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .strava-runners-search input {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 14px 11px 44px;
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 12px;
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .strava-runners-search input::placeholder {
+    color: rgba(255,255,255,.54);
+  }
+
+  .strava-runners-search input:focus {
+    border-color: rgba(248,198,48,.7);
+    box-shadow: 0 0 0 3px rgba(248,198,48,.14);
+  }
+
+  .strava-runners-list {
+    max-width: 720px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .strava-runner-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: rgba(255,255,255,.09);
+    border: 1px solid rgba(248,198,48,.20);
+    box-sizing: border-box;
+  }
+
+  .strava-runner-info {
+    min-width: 0;
+  }
+
+  .strava-runner-name {
+    margin-bottom: 4px;
+    color: #f8c630;
+    font-size: 18px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+  }
+
+  .strava-runner-group {
+    color: rgba(255,255,255,.82);
+    font-size: 13px;
+  }
+
+  .strava-runner-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    background: rgba(248,198,48,.16);
+    border: 1px solid rgba(248,198,48,.34);
+    color: #fff;
+  }
+
+  .strava-runners-empty {
+    max-width: 720px;
+    margin: 18px auto 0;
+    padding: 24px 16px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.82);
+    font-size: 14px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 640px) {
+    .strava-runners-wrap {
+      width: min(100% - 24px, 900px);
+      padding-bottom: 32px;
+    }
+
+    .strava-runners-search {
+      margin-bottom: 12px;
+    }
+
+    .strava-runner-card {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 12px;
+      padding: 13px 14px;
+    }
+
+    .strava-runner-link {
+      align-self: flex-start;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    const input = document.getElementById("stravaRunnerSearch");
+    const list = document.getElementById("stravaRunnerList");
+    const empty = document.getElementById("stravaRunnerNoResults");
+
+    if (!input || !list || !empty) return;
+
+    const cards = Array.from(list.querySelectorAll(".strava-runner-card"));
+
+    input.addEventListener("input", function () {
+      const query = input.value.trim().toLowerCase();
+      let visible = 0;
+
+      cards.forEach(function (card) {
+        const haystack = card.dataset.search || "";
+        const terms = haystack.split(/\s+/).filter(Boolean);
+        const matches = !query || terms.some(function (term) {
+          return term.startsWith(query);
+        });
+        card.hidden = !matches;
+        if (matches) visible += 1;
+      });
+
+      empty.hidden = visible > 0;
+    });
+  })();
+</script>
+{% endblock %}

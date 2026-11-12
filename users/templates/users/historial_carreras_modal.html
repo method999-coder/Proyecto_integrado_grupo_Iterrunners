@@ -1,0 +1,357 @@
+{% extends "users/base.html" %}
+{% block title %}Historial de carreras{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_corredores' %}" onclick="if (window.history.length > 1) { window.history.back(); return false; }">← Volver</a>
+  <h1>Historial de carreras</h1>
+  <div></div>
+</div>
+
+<div class="profile-card historial-shell">
+  <div class="historial-header">
+    <div class="historial-runner">{{ perfil.nombre }} {{ perfil.apellido }}</div>
+    <div class="historial-sub">Registro manual de marcas por distancia</div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="msg {% if message.tags %}msg-{{ message.tags }}{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {% for d, carreras in carreras_por_distancia.items %}
+    <details class="historial-distance" {% if d == 3000 %}open{% endif %}>
+      <summary class="historial-summary">
+        <span>{{ d }}m</span>
+        <span class="historial-count">{{ carreras|length }} marcas</span>
+      </summary>
+
+      <div class="historial-panel">
+        {% if carreras %}
+          <div class="historial-table-wrap">
+            <table class="historial-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tiempo</th>
+                  <th>Ritmo</th>
+                  <th>Eliminar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in carreras %}
+                  <tr class="{% if c.es_mejor %}best-mark{% endif %}">
+                    <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ c.tiempo }}</td>
+                    <td>{{ c.ritmo }}</td>
+                    <td class="actions-cell">
+                      <form method="post" action="" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="hidden" name="eliminar_id" value="{{ c.id }}">
+                        <button type="submit" class="delete-icon-btn" title="Eliminar marca" aria-label="Eliminar marca">
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"/>
+                          </svg>
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="historial-empty">Sin registros</div>
+        {% endif %}
+      </div>
+    </details>
+  {% endfor %}
+
+  <hr class="historial-separator">
+  <h3 class="historial-form-title">Agregar nueva marca</h3>
+  <form method="post" action="" class="form-card historial-form">
+    {% csrf_token %}
+    <div class="form-grid">
+      <p class="historial-field-date">
+        {{ form.fecha.label_tag }}
+        {{ form.fecha }}
+        <button type="button" id="open-calendar-btn" class="btn-mini" style="margin-top:8px;">Abrir calendario</button>
+      </p>
+      <p>
+        {{ form.distancia_m.label_tag }}
+        {{ form.distancia_m }}
+      </p>
+      <p>
+        {{ form.tiempo.label_tag }}
+        {{ form.tiempo }}
+      </p>
+      <p class="historial-pace-preview-wrap">
+        <label for="pace_preview">Ritmo</label>
+        <input id="pace_preview" type="text" value="-" readonly>
+      </p>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="page-cta page-cta-sm">Agregar marca</button>
+    </div>
+    {% if form.errors %}
+      <div style="color:#e74c3c;font-size:0.95rem;margin-top:6px;">{{ form.errors }}</div>
+    {% endif %}
+  </form>
+</div>
+
+<script>
+  (function () {
+    const fechaInput = document.getElementById("id_fecha");
+    const distanciaInput = document.getElementById("id_distancia_m");
+    const tiempoInput = document.getElementById("id_tiempo");
+    const pacePreview = document.getElementById("pace_preview");
+    const openCalendarBtn = document.getElementById("open-calendar-btn");
+
+    function tiempoASegundos(raw) {
+      if (!raw) return null;
+      const parts = raw.trim().split(":").map(Number);
+      if (parts.some(Number.isNaN)) return null;
+
+      if (parts.length === 2) {
+        return (parts[0] * 60) + parts[1];
+      }
+      if (parts.length === 3) {
+        return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+      }
+      return null;
+    }
+
+    function actualizarRitmo() {
+      if (!distanciaInput || !tiempoInput || !pacePreview) return;
+
+      const distancia = Number(distanciaInput.value);
+      const totalSeg = tiempoASegundos(tiempoInput.value);
+
+      if (!distancia || !totalSeg) {
+        pacePreview.value = "-";
+        return;
+      }
+
+      const segPorKm = totalSeg / (distancia / 1000);
+      let mm = Math.floor(segPorKm / 60);
+      let ss = Math.round(segPorKm % 60);
+
+      if (ss === 60) {
+        mm += 1;
+        ss = 0;
+      }
+
+      pacePreview.value = `${mm}:${String(ss).padStart(2, "0")} /km`;
+    }
+
+    if (openCalendarBtn && fechaInput) {
+      openCalendarBtn.addEventListener("click", function () {
+        fechaInput.focus();
+        if (typeof fechaInput.showPicker === "function") {
+          try {
+            fechaInput.showPicker();
+          } catch (error) {
+            // Some browsers block showPicker outside trusted context.
+          }
+        }
+      });
+
+      fechaInput.addEventListener("focus", function () {
+        if (typeof fechaInput.showPicker === "function") {
+          try {
+            fechaInput.showPicker();
+          } catch (error) {
+          }
+        }
+      });
+    }
+
+    if (distanciaInput) distanciaInput.addEventListener("change", actualizarRitmo);
+    if (tiempoInput) {
+      tiempoInput.addEventListener("input", actualizarRitmo);
+      tiempoInput.addEventListener("blur", actualizarRitmo);
+    }
+
+    actualizarRitmo();
+  })();
+</script>
+
+<style>
+  .historial-shell {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .historial-header {
+    margin-bottom: 14px;
+  }
+
+  .historial-runner {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #ffeb3b;
+  }
+
+  .historial-sub {
+    color: rgba(245, 245, 245, 0.78);
+    margin-top: 4px;
+    font-size: 0.95rem;
+  }
+
+  .historial-distance {
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .historial-summary {
+    cursor: pointer;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    color: #b5d1ff;
+    list-style: none;
+  }
+
+  .historial-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .historial-count {
+    font-size: 0.85rem;
+    color: rgba(245, 245, 245, 0.6);
+    font-weight: 700;
+  }
+
+  .historial-panel {
+    padding: 10px 12px;
+  }
+
+  .historial-table-wrap {
+    overflow-x: auto;
+  }
+
+  .historial-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  .historial-table th,
+  .historial-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+  }
+
+  .historial-table th {
+    color: #ffe082;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .historial-table th:last-child {
+    text-align: center;
+    min-width: 110px;
+  }
+
+  .historial-table td.actions-cell {
+    text-align: center;
+    min-width: 110px;
+    width: 110px;
+  }
+
+  .delete-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(231, 76, 60, 0.18);
+    color: #ffd7d1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  }
+
+  .delete-icon-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  .delete-icon-btn:hover {
+    background: rgba(231, 76, 60, 0.32);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .historial-table .best-mark .delete-icon-btn {
+    border-color: rgba(20, 92, 27, 0.35);
+    background: rgba(20, 92, 27, 0.12);
+    color: #145c1b;
+  }
+
+  .historial-table .best-mark {
+    background: #d4f7c5;
+    color: #145c1b;
+    font-weight: 700;
+  }
+
+  .historial-empty {
+    color: rgba(245, 245, 245, 0.75);
+    font-size: 0.95rem;
+  }
+
+  .historial-separator {
+    margin: 18px 0 14px;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .historial-form-title {
+    color: #ffe082;
+    font-size: 1.04rem;
+    margin-bottom: 10px;
+  }
+
+  .historial-form {
+    margin-top: 6px;
+  }
+
+  .historial-pace-preview-wrap {
+    opacity: 0.95;
+  }
+
+  .historial-pace-preview-wrap input {
+    font-weight: 700;
+    color: #b5d1ff;
+  }
+
+  @media (max-width: 640px) {
+    .historial-shell {
+      padding: 14px;
+    }
+
+    .historial-table th,
+    .historial-table td {
+      padding: 8px;
+      font-size: 0.92rem;
+    }
+
+    .historial-table td.actions-cell {
+      min-width: 90px;
+    }
+  }
+</style>
+{% endblock %}

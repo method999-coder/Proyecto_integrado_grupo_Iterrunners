@@ -1,0 +1,270 @@
+{% extends "users/base.html" %}
+
+{% block title %}Editar día{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_calendarios' %}?grupo={{ grupo.id }}&m={{ fecha|date:'Y-m' }}&date={{ fecha|date:'Y-m-d' }}">← Volver</a>
+  <h1>Editar día</h1>
+</div>
+
+<div class="profile-card">
+  <h2 class="profile-section">{{ grupo.nombre }} — {{ fecha|date:"l j \\d\\e F Y" }}</h2>
+
+  <form method="post" class="form-card">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="form-grid">
+      {{ form.modalidad.errors }}
+      <p>
+        <label for="{{ form.modalidad.id_for_label }}">Modalidad:</label>
+        {{ form.modalidad }}
+      </p>
+
+      {{ form.tipo.errors }}
+      <p>
+        <label for="{{ form.tipo.id_for_label }}">Tipo:</label>
+        {{ form.tipo }}
+      </p>
+
+      {{ form.titulo.errors }}
+      <p>
+        <label for="{{ form.titulo.id_for_label }}">Titulo:</label>
+        {{ form.titulo }}
+      </p>
+
+      {{ form.descripcion.errors }}
+      <p>
+        <label for="{{ form.descripcion.id_for_label }}">Descripcion:</label>
+        {{ form.descripcion }}
+      </p>
+    </div>
+
+    <div class="resource-shell" style="margin-top:14px; border:1px solid rgba(255,255,255,.10); border-radius:12px; padding:12px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
+        <strong style="color:#ffeb3b;">Recursos (Drive, YouTube, PDF, etc.)</strong>
+        <button type="button" id="addResourceRow" class="btn-mini" style="border:none; cursor:pointer;">+ Agregar enlace</button>
+      </div>
+
+      {{ recurso_formset.management_form }}
+      {{ recurso_formset.non_form_errors }}
+
+      <div id="resourceRows" style="display:grid; gap:10px;">
+        {% for recurso_form in recurso_formset %}
+          <div class="resource-row" style="display:grid; gap:8px; border:1px solid rgba(255,255,255,.10); border-radius:10px; padding:12px; background:rgba(255,255,255,.02);">
+            {% for hidden in recurso_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <div class="resource-row-grid" style="display:grid; gap:10px; grid-template-columns: 1fr 190px;">
+              <div>
+                {{ recurso_form.titulo.errors }}
+                <label for="{{ recurso_form.titulo.id_for_label }}">Titulo</label>
+                {{ recurso_form.titulo }}
+              </div>
+              <div>
+                {{ recurso_form.tipo.errors }}
+                <label for="{{ recurso_form.tipo.id_for_label }}">Tipo</label>
+                {{ recurso_form.tipo }}
+              </div>
+            </div>
+            <div>
+              {{ recurso_form.url.errors }}
+              <label for="{{ recurso_form.url.id_for_label }}">URL</label>
+              {{ recurso_form.url }}
+            </div>
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+              <div style="max-width:120px;">
+                {{ recurso_form.orden.errors }}
+                <label for="{{ recurso_form.orden.id_for_label }}">Orden</label>
+                {{ recurso_form.orden }}
+              </div>
+              {% if recurso_formset.can_delete %}
+                <div class="resource-delete-area" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                  <span style="display:none;">{{ recurso_form.DELETE }}</span>
+                  {% if recurso_form.instance.pk %}
+                    <button
+                      type="button"
+                      class="btn-mini resource-delete-now"
+                      data-delete-url="{% url 'eliminar_entrenamiento_recurso' recurso_form.instance.pk %}"
+                      style="border:none; cursor:pointer;"
+                    >Eliminar ahora</button>
+                  {% else %}
+                    <button type="button" class="btn-mini resource-row-remove" style="border:none; cursor:pointer;">Quitar fila</button>
+                  {% endif %}
+                  <button type="button" class="btn-mini resource-delete-toggle" style="border:none; cursor:pointer;">Marcar para guardar</button>
+                  <small class="resource-delete-hint" hidden>Se eliminara al guardar.</small>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <template id="emptyResourceRowTemplate">
+        <div class="resource-row" style="display:grid; gap:8px; border:1px solid rgba(255,255,255,.10); border-radius:10px; padding:12px; background:rgba(255,255,255,.02);">
+          {% with recurso_form=recurso_formset.empty_form %}
+            {% for hidden in recurso_form.hidden_fields %}{{ hidden }}{% endfor %}
+            <div class="resource-row-grid" style="display:grid; gap:10px; grid-template-columns: 1fr 190px;">
+              <div>
+                <label for="{{ recurso_form.titulo.id_for_label }}">Titulo</label>
+                {{ recurso_form.titulo }}
+              </div>
+              <div>
+                <label for="{{ recurso_form.tipo.id_for_label }}">Tipo</label>
+                {{ recurso_form.tipo }}
+              </div>
+            </div>
+            <div>
+              <label for="{{ recurso_form.url.id_for_label }}">URL</label>
+              {{ recurso_form.url }}
+            </div>
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+              <div style="max-width:120px;">
+                <label for="{{ recurso_form.orden.id_for_label }}">Orden</label>
+                {{ recurso_form.orden }}
+              </div>
+              {% if recurso_formset.can_delete %}
+                <div class="resource-delete-area" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                  <span style="display:none;">{{ recurso_form.DELETE }}</span>
+                  <button type="button" class="btn-mini resource-row-remove" style="border:none; cursor:pointer;">Quitar fila</button>
+                  <button type="button" class="btn-mini resource-delete-toggle" style="border:none; cursor:pointer;">Eliminar</button>
+                  <small class="resource-delete-hint" hidden>Se eliminara al guardar.</small>
+                </div>
+              {% endif %}
+            </div>
+          {% endwith %}
+        </div>
+      </template>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="page-cta">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    const addBtn = document.getElementById("addResourceRow");
+    const rows = document.getElementById("resourceRows");
+    const template = document.getElementById("emptyResourceRowTemplate");
+    const totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]');
+    const csrfTokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : "";
+
+    if (!addBtn || !rows || !template || !totalForms) return;
+
+    function wireDeleteToggle(row) {
+      const deleteInput = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+      const toggleBtn = row.querySelector('.resource-delete-toggle');
+      const removeBtn = row.querySelector('.resource-row-remove');
+      const deleteNowBtn = row.querySelector('.resource-delete-now');
+      const hint = row.querySelector('.resource-delete-hint');
+      if (!deleteInput) return;
+
+      function hideRowWithDelete() {
+        deleteInput.checked = true;
+        row.classList.add('resource-row--delete');
+        row.style.display = 'none';
+        if (hint) hint.hidden = false;
+      }
+
+      function applyState() {
+        const marked = deleteInput.checked;
+        row.classList.toggle('resource-row--delete', marked);
+        toggleBtn.textContent = marked ? 'Deshacer' : 'Eliminar';
+        if (hint) hint.hidden = !marked;
+      }
+
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function () {
+          deleteInput.checked = !deleteInput.checked;
+          applyState();
+        });
+      }
+
+      if (removeBtn) {
+        removeBtn.addEventListener('click', function () {
+          hideRowWithDelete();
+        });
+      }
+
+      if (deleteNowBtn) {
+        deleteNowBtn.addEventListener('click', function () {
+          const deleteUrl = deleteNowBtn.getAttribute('data-delete-url');
+          if (!deleteUrl) return;
+          const ok = window.confirm('Se eliminara este recurso ahora. Continuar?');
+          if (!ok) return;
+
+          fetch(deleteUrl, {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+          })
+            .then(function (response) {
+              if (!response.ok) throw new Error('No se pudo eliminar');
+              hideRowWithDelete();
+            })
+            .catch(function () {
+              window.alert('No se pudo eliminar ahora. Intenta nuevamente.');
+            });
+        });
+      }
+
+      applyState();
+    }
+
+    rows.querySelectorAll('.resource-row').forEach(wireDeleteToggle);
+
+    addBtn.addEventListener("click", function () {
+      const index = parseInt(totalForms.value, 10);
+      const html = template.innerHTML.replaceAll("__prefix__", String(index));
+      rows.insertAdjacentHTML("beforeend", html);
+      const newRow = rows.lastElementChild;
+      if (newRow) wireDeleteToggle(newRow);
+      totalForms.value = String(index + 1);
+    });
+  })();
+</script>
+
+<style>
+  .resource-shell label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 700;
+    color: #f5f5f5;
+  }
+
+  .resource-shell input,
+  .resource-shell select,
+  .resource-shell textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255,255,255,.08) !important;
+    color: #f5f5f5 !important;
+    border: 1px solid rgba(255,255,255,.18) !important;
+    border-radius: 10px !important;
+    padding: 9px 10px !important;
+  }
+
+  .resource-shell input::placeholder,
+  .resource-shell textarea::placeholder {
+    color: rgba(245,245,245,.6);
+  }
+
+  .resource-row--delete {
+    opacity: 0.55;
+    border-color: rgba(255, 99, 71, 0.6) !important;
+    background: rgba(255, 99, 71, 0.08) !important;
+  }
+
+  @media (max-width: 680px) {
+    .resource-row-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+{% endblock %}

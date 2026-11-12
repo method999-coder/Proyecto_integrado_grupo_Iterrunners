@@ -1,0 +1,13 @@
+# INICIO - Bloqueo de despliegue en Iterrunners-Dev
+name: Render deploy disabled in Iterrunners-Dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  local-only:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report local-only policy
+        run: echo "Los despliegues de Iterrunners-Dev están deshabilitados."
+# FIN - Bloqueo de despliegue en Iterrunners-Dev

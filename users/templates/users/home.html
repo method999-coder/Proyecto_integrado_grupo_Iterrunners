@@ -1,0 +1,313 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block title %}Inicio | Runners App{% endblock %}
+{% block body_class %}app-home{% endblock %}
+
+{% block content %}
+<div class="home-topbar">
+  <div class="home-user">
+    <div class="user-menu">
+      <button type="button" class="avatar user-chip" id="userMenuBtn"
+              aria-haspopup="true" aria-expanded="false">
+        {{ user.username|slice:":1"|upper }}
+      </button>
+
+      <div class="dropdown" id="userDropdown" hidden>
+        {% url 'perfil' as perfil_url %}
+        {% url 'calendario' as calendario_url %}
+
+        <a href="{{ perfil_url }}" data-menu-item="perfil">Perfil/Ritmos</a>
+        <a href="{{ calendario_url }}" data-menu-item="calendario">Calendario</a>
+
+        {% if strava_conectado %}
+          <form method="post" action="{% url 'strava_disconnect' %}">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-logout" data-menu-item="strava-disconnect">Desconectar strava</button>
+          </form>
+          <form method="post" action="{% url 'strava_delete_data' %}" onsubmit="return confirm('¿Seguro que quieres eliminar tus datos de Strava en la app? Esta acción no se puede deshacer.');">
+            {% csrf_token %}
+            <button type="submit" class="dropdown-logout" data-menu-item="strava-delete-data">Eliminar datos de Strava</button>
+          </form>
+        {% endif %}
+
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="dropdown-logout" data-menu-item="logout">Cerrar sesión</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="home-user-meta">
+      <div class="home-name">{{ user.username|capfirst }}</div>
+      <div class="home-badges">
+        <span class="badge">{{ perfil.grupo.nombre|default:"Sin grupo" }}</span>
+        {% if strava_conectado %}
+          <span class="badge muted">
+              Strava: Conectado ✅
+          </span>
+        {# INICIO - Ocultar vinculación cuando Strava está desactivado #}
+        {% elif strava_enabled %}
+          <a href="{% url 'strava_login' %}" class="badge" style="text-decoration:none;">
+            Conectar Strava
+          </a>
+        {% endif %}
+        {# FIN - Ocultar vinculación cuando Strava está desactivado #}
+
+      </div>
+    </div>
+  </div>
+
+  {% if user.is_superuser or es_profesor or es_admin %}
+    <a class="btn-admin" href="{% url 'administracion' %}">Admin</a>
+  {% endif %}
+</div>
+
+{% if cumpleanos_hoy %}
+  <div id="birthdayModal" class="birthday-modal" hidden>
+    <div class="birthday-card">
+      <h3>🎉 ¡Hoy celebramos a {% for p in cumpleanos_hoy %}{{ p.nombre }}{% if p.apellido %} {{ p.apellido }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}! 🎉</h3>
+      <p>Que tengas un día increíble y que sigas sumando kilómetros 🏃‍♂️🏃‍♀️</p>
+      <button id="closeBirthday" type="button" class="btn-mini birthday-close" onclick="document.getElementById('birthdayModal').style.display='none'">Cerrar</button>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const m = document.getElementById('birthdayModal');
+      if (!m) return;
+      m.removeAttribute('hidden');
+      // Robust close: button inline onclick + overlay click
+      try{
+        m.addEventListener('click', function(e){ if (e.target === m) m.style.display='none'; });
+      }catch(e){/* ignore */}
+      // opcional: cerrar automáticamente
+      // setTimeout(()=> m.setAttribute('hidden',''), 8000);
+    })();
+  </script>
+
+  <style>
+    .birthday-modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); z-index:9999; }
+    .birthday-card{ background:#fff; color:#111; padding:14px; border-radius:10px; max-width:320px; text-align:center; border:3px solid #0ea5ff; box-shadow: 0 8px 30px rgba(14,165,255,0.12); }
+    .birthday-card h3{ margin:0 0 8px; }
+    .birthday-card p{ margin:0 0 12px; font-weight:700; }
+    .birthday-card .birthday-close{ background:#0b1226; color:#fff; border:2px solid #0ea5ff; padding:6px 12px; }
+    .birthday-card .birthday-close:hover{ background:#0b1226; box-shadow:0 6px 18px rgba(14,165,255,0.18); }
+  </style>
+{% endif %}
+
+<div class="plan-hoy">
+  <h2 style="color:#f2c230;">Plan de hoy - {{ fecha_hoy|date:"l j \\d\\e F" }}</h2>
+
+  {% if entreno_hoy %}
+    <p class="plan-desc">
+      <strong style="font-size:1.08rem;">{{ entreno_hoy.get_tipo_display }}</strong>
+    </p>
+
+    {% if entreno_hoy.descripcion %}
+      <p class="plan-desc">{{ entreno_hoy.descripcion }}</p>
+    {% endif %}
+
+    {% if entreno_hoy.recursos.all %}
+      <div class="home-resources-wrap">
+        <div class="home-resources-title">Recursos del dia</div>
+        <div class="home-resources-list">
+          {% for recurso in entreno_hoy.recursos.all %}
+            <a href="{{ recurso.url }}" target="_blank" rel="noopener noreferrer" class="home-resource-link">
+              {{ recurso.titulo }}
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if ritmos_resumen %}
+      <div style="text-align:center; margin: 6px 0 2px;">
+        <a href="#" id="toggleRitmos" style="color:#fff !important; font-weight:700; text-decoration:underline;">Ver ritmos</a>
+      </div>
+      <div id="ritmosBox" hidden style="margin: 8px auto 6px; max-width: 320px; text-align:left; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px;">
+        {% for nombre, minimo, maximo in ritmos_resumen %}
+          {% if minimo or maximo %}
+            {% with zona=nombre|upper %}
+              <div class="home-ritmo-row {% if zona == 'REG' or zona == 'Z0' %}home-ritmo-reg{% elif zona == 'R1' or zona == 'Z1' %}home-ritmo-r1{% elif zona == 'R2' or zona == 'Z2' %}home-ritmo-r2{% elif zona == 'R3' or zona == 'Z3' %}home-ritmo-r3{% elif zona == 'UL' or zona == 'Z4' %}home-ritmo-ul{% elif zona == 'CA' or zona == 'Z5' %}home-ritmo-ca{% elif zona == 'CAN' or zona == 'Z6' %}home-ritmo-can{% else %}home-ritmo-default{% endif %}">
+                <span class="home-ritmo-zona">{{ nombre }}</span>
+                <span class="home-ritmo-rango">{{ minimo|default:'-' }}{% if minimo and maximo %} - {% endif %}{{ maximo|default:'' }}</span>
+              </div>
+            {% endwith %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if km_semana is not None %}
+      <p class="plan-desc" style="color:#fff; font-weight:700; margin-top: 8px;">Km semana: {{ km_semana|floatformat:"-1" }} km</p>
+    {% endif %}
+
+    {% if es_corredor or es_admin %}
+      <div style="margin-top: 12px; text-align:center;">
+        <a class="btn-mini blue btn-mini-home" href="{% url 'registro_actividad' %}?fecha={{ fecha_hoy|date:'Y-m-d' }}" style="display:inline-block; text-decoration:none; border:none;">Registrar esta actividad</a>
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="plan-desc">Hoy no tienes entrenamiento asignado (Descanso).</p>
+
+    {% if es_corredor or es_admin %}
+      <div style="margin-top: 12px; text-align:center;">
+        <a class="btn-mini blue" href="{% url 'registro_actividad' %}" style="display:inline-block; text-decoration:none; border:none;">Registrar otra fecha</a>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+
+<div class="grid-actions">
+  <a class="card-action" href="{% url 'calendario' %}">
+    <div class="icon">📅</div>
+    <div class="label">Calendario de entrenamiento</div>
+  </a>
+
+  {# INICIO - Ocultar la consulta en vivo cuando Strava está desactivado #}
+  {% if strava_enabled %}
+  <a class="card-action" href="{% url 'actividad' %}">
+    <div class="icon">🏃</div>
+    <div class="label">Actividad</div>
+  </a>
+  {% endif %}
+  {# FIN - Ocultar la consulta en vivo cuando Strava está desactivado #}
+
+  <a class="card-action" href="{% url 'estadisticas' %}">
+    <div class="icon">📊</div>
+    <div class="label">Estadísticas</div>
+  </a>
+
+  <a class="card-action" href="{% url 'ranking' %}">
+    <div class="icon">🏆</div>
+    <div class="label">Ranking</div>
+  </a>
+
+  <a class="card-action" href="{% url 'feed' %}">
+    <div class="icon">📣</div>
+    <div class="label">Feed</div>
+  </a>
+
+  <a class="card-action" href="{% url 'mi_grupo' %}">
+    <div class="icon">👥</div>
+    <div class="label">Mi grupo</div>
+  </a>
+</div>
+
+<p style="text-align:center; margin:14px 0 4px; font-size:12px; opacity:.72;">
+  <span style="display:block; margin-bottom:4px; color:#dbe6ff;">Compatible con Strava</span>
+  <a href="{% url 'privacy_policy' %}" style="color:#dbe6ff; text-decoration:none;">Política de Privacidad</a>
+</p>
+
+<style>
+  .home-resources-wrap{
+    margin: 10px auto 4px;
+    max-width: 360px;
+    text-align:center;
+  }
+
+  .home-resources-title{
+    font-weight:700;
+    color:#f2c230;
+    margin-bottom:6px;
+  }
+
+  .home-resources-list{
+    display:grid;
+    gap:6px;
+    justify-items:center;
+  }
+
+  .home-resource-link{
+    color:#dbe6ff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-size:0.92rem;
+    cursor:pointer;
+    font-style: italic;
+  }
+
+  .home-resource-link:hover{
+    color:#ffffff;
+  }
+
+  .home-ritmo-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-size:0.95rem;
+    padding:6px 8px;
+    border-radius:8px;
+    margin:4px 0;
+    border:1px solid rgba(255,255,255,.08);
+  }
+
+  .home-ritmo-zona{
+    font-weight:800;
+    letter-spacing:.2px;
+  }
+
+  .home-ritmo-rango{
+    opacity:.95;
+    font-weight:700;
+  }
+
+  .home-ritmo-reg{ background: #eef3ff; color:#111; }
+  .home-ritmo-r1{ background: #dde8ff; color:#111; }
+  .home-ritmo-r2{ background: #c9dcff; color:#111; }
+  .home-ritmo-r3{ background: #b5d1ff; color:#111; }
+  .home-ritmo-ul{ background: #ffe082; color:#111; }
+  .home-ritmo-ca{ background: #ffb74d; color:#111; }
+  .home-ritmo-can{ background: #ef5350; color:#111; }
+  .home-ritmo-default{ background: #e5efff; color:#111; }
+</style>
+
+<script>
+  (function () {
+    const btn = document.getElementById("userMenuBtn");
+    const dd  = document.getElementById("userDropdown");
+
+    if (!btn || !dd) return;
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const isHidden = dd.hasAttribute("hidden");
+      if (isHidden) {
+        dd.removeAttribute("hidden");
+        btn.setAttribute("aria-expanded", "true");
+      } else {
+        dd.setAttribute("hidden", "");
+        btn.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    document.addEventListener("click", function () {
+      dd.setAttribute("hidden", "");
+      btn.setAttribute("aria-expanded", "false");
+    });
+  })();
+
+  (function () {
+    const toggle = document.getElementById("toggleRitmos");
+    const box = document.getElementById("ritmosBox");
+    if (!toggle || !box) return;
+
+    toggle.addEventListener("click", function (event) {
+      event.preventDefault();
+      const isHidden = box.hasAttribute("hidden");
+      if (isHidden) {
+        box.removeAttribute("hidden");
+        toggle.textContent = "Ocultar ritmos";
+      } else {
+        box.setAttribute("hidden", "");
+        toggle.textContent = "Ver ritmos";
+      }
+    });
+  })();
+</script>
+
+{% endblock %}
+
+

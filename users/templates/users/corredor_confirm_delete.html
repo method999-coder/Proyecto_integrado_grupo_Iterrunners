@@ -1,0 +1,34 @@
+{% extends "users/base.html" %}
+
+{% block title %}Eliminar corredor{% endblock %}
+
+{% block content %}
+<div class="app-page">
+  <div class="main-content">
+    <div class="page-topbar">
+      <a class="page-back" href="{% url 'gestion_corredores' %}">← Volver</a>
+      <h1>Eliminar corredor</h1>
+    </div>
+
+    <div class="form-card">
+      <div class="empty-state">
+        <div class="empty-title">¿Eliminar este corredor?</div>
+        <div class="empty-description">
+          Estás a punto de eliminar a <strong>{{ perfil.usuario.get_full_name|default:perfil.usuario.username }}</strong>
+        </div>
+        <p style="color: #666; font-size: 14px; margin-top: 16px;">
+          Esta acción eliminará al usuario y su perfil de forma permanente. No se puede deshacer.
+        </p>
+      </div>
+
+      <form method="post" class="app-form">
+        {% csrf_token %}
+        <div class="form-actions">
+          <button class="page-cta" type="submit" style="background-color: #e74c3c;">Sí, eliminar</button>
+          <a class="btn-mini" href="{% url 'gestion_corredores' %}">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

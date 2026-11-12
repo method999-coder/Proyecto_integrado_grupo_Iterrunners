@@ -1,0 +1,30 @@
+{% extends "users/base.html" %}
+
+{% block title %}Crear grupo{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_grupos' %}">← Volver</a>
+  <h1>{% if editando %}Editar grupo{% else %}Crear grupo{% endif %}</h1>
+</div>
+
+<div class="profile-card">
+  <form method="post" class="form-card">
+    {% csrf_token %}
+
+    {{ form.non_field_errors }}
+
+    <div class="form-grid">
+      {{ form.as_p }}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="page-cta">
+        {% if editando %}Guardar cambios{% else %}Crear grupo{% endif %}
+     </button>
+
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Run">
+  <defs>
+    <linearGradient id="gRun" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#gRun)"/>
+  <g fill="none" stroke="#083B2F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="33" cy="16" r="4" fill="#083B2F" stroke="none"/>
+    <path d="M33 22 L28 29 L35 34 L41 28"/>
+    <path d="M35 34 L29 44"/>
+    <path d="M35 34 L44 41"/>
+    <path d="M28 29 L22 36"/>
+  </g>
+</svg>

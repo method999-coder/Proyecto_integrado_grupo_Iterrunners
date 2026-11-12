@@ -1,0 +1,67 @@
+{% extends "users/base.html" %}
+{% block title %}Crear corredor{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_corredores' %}">← Volver</a>
+  <h1>Crear corredor</h1>
+</div>
+
+<div class="profile-card">
+  <form method="post" class="form-card app-form">
+    {% csrf_token %}
+
+    <div class="form-row">
+      <label class="form-label">{{ form.username.label }}</label>
+      {{ form.username }}
+      {% for e in form.username.errors %}<div class="form-error">{{ e }}</div>{% endfor %}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.first_name.label }}</label>
+      {{ form.first_name }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.fecha_nacimiento.label }}</label>
+      {{ form.fecha_nacimiento }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.last_name.label }}</label>
+      {{ form.last_name }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.email.label }}</label>
+      {{ form.email }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.grupo.label }}</label>
+      {{ form.grupo }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.meta_actual.label }}</label>
+      {{ form.meta_actual }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.mejor_marca.label }}</label>
+      {{ form.mejor_marca }}
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">{{ form.modalidad_ritmo.label }}</label>
+      {{ form.modalidad_ritmo }}
+    </div>
+
+    <div class="form-actions">
+      <button class="page-cta" type="submit">Crear corredor</button>
+      <a class="btn-mini" href="{% url 'gestion_corredores' %}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

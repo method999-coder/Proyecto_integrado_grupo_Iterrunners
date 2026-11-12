@@ -1,0 +1,334 @@
+{% extends "users/base.html" %}
+{% load static %}
+
+{% block title %}Controles de ritmo{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_corredores' %}">← Volver</a>
+        <h1 class="ritmo-page-title">Controles de ritmo</h1>
+</div>
+
+<div class="profile-card ritmo-shell">
+    <h2 class="profile-section ritmo-runner-name">
+    Corredor: {{ perfil.usuario.get_full_name|default:perfil.usuario.username }}
+  </h2>
+
+    <div class="ritmo-type-switch">
+        <a class="btn-mini {% if tipo_ritmo == 'runners' %}blue{% endif %}" href="{% url 'crear_ritmo' perfil.id %}?tipo=runners">Ritmos Runners</a>
+        <a class="btn-mini {% if tipo_ritmo == 'trail' %}blue{% endif %}" href="{% url 'crear_ritmo' perfil.id %}?tipo=trail">Ritmos Trail</a>
+    </div>
+
+    {% if ritmo_actual %}
+        <div class="ritmo-current-box">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div>
+                    <div class="ritmo-current-title">Último control</div>
+                    <div class="ritmo-updated">Actualizado: {{ ritmo_actual.fecha|date:"j \d\e F \d\e Y" }}</div>
+                </div>
+                <div>
+                    {% if es_staffish %}
+                        <form method="post" action="{% url 'eliminar_ritmo' perfil.id ritmo_actual.id %}" style="display:inline; margin:0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-mini danger" onclick="return confirm('¿Borrar el último control? Esta acción no se puede deshacer.');">Borrar</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="ritmos-control-table">
+                <div class="ritmo-head ritmo-head-control">
+                    <div class="col-zona">Control</div>
+                    <div class="col-rango"></div>
+                </div>
+                <div class="ritmo-row ctrl-1"><div class="col-zona">Distancia</div><div class="col-rango">{{ ritmo_actual.distancia_test_m }} m</div></div>
+                <div class="ritmo-row ctrl-2"><div class="col-zona">Tiempo</div><div class="col-rango">{{ ritmo_actual.tiempo_test|default:"—" }}</div></div>
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="ritmo-row ctrl-3"><div class="col-zona">FC Máxima (PPM)</div><div class="col-rango">{{ ritmo_actual.fc_maxima_ppm|default:"—" }}</div></div>
+                {% else %}
+                    <div class="ritmo-row ctrl-3"><div class="col-zona">Paso VO₂max</div><div class="col-rango">{{ ritmo_actual.paso_vo2max|default:"—" }}</div></div>
+                    <div class="ritmo-row ctrl-4"><div class="col-zona">VO₂max</div><div class="col-rango">{{ ritmo_actual.vo2max|default:"—" }}</div></div>
+                {% endif %}
+            </div>
+
+            <div class="ritmos-table">
+                <div class="ritmo-head">
+                    <div class="col-zona">Zona de entrenamiento</div>
+                    <div class="col-rango">{% if tipo_ritmo == 'trail' %}FC (ppm){% else %}Ritmo (min/km){% endif %}</div>
+                </div>
+                <div class="ritmo-row reg"><div class="col-zona">{% if tipo_ritmo == 'trail' %}Zona 0{% else %}REG (Regenerativo){% endif %}</div><div class="col-rango">{{ ritmo_actual.reg_min }} - {{ ritmo_actual.reg_max }}</div></div>
+                <div class="ritmo-row r1"><div class="col-zona">{% if tipo_ritmo == 'trail' %}Zona 1{% else %}AERÓBICO 1 (R1){% endif %}</div><div class="col-rango">{{ ritmo_actual.r1_min }} - {{ ritmo_actual.r1_max }}</div></div>
+                <div class="ritmo-row r2"><div class="col-zona">{% if tipo_ritmo == 'trail' %}Zona 2{% else %}AERÓBICO 2 (R2){% endif %}</div><div class="col-rango">{{ ritmo_actual.r2_min }} - {{ ritmo_actual.r2_max }}</div></div>
+                <div class="ritmo-row r3"><div class="col-zona">{% if tipo_ritmo == 'trail' %}Zona 3{% else %}AERÓBICO 3 (R3){% endif %}</div><div class="col-rango">{{ ritmo_actual.r3_min }} - {{ ritmo_actual.r3_max }}</div></div>
+                <div class="ritmo-row ul"><div class="col-zona">{% if tipo_ritmo == 'trail' %}Zona 4{% else %}UMBRAL LÁCTICO (UL){% endif %}</div><div class="col-rango">{{ ritmo_actual.ul_min }} - {{ ritmo_actual.ul_max }}</div></div>
+                <div class="ritmo-row ca"><div class="col-zona">{% if tipo_ritmo == 'trail' %}Zona 5{% else %}CAPACIDAD AERÓBICA VO₂MAX (CA){% endif %}</div><div class="col-rango">{{ ritmo_actual.ca_min }} - {{ ritmo_actual.ca_max }}</div></div>
+                {% if tipo_ritmo == 'runners' %}
+                    <div class="ritmo-row can"><div class="col-zona">CAPACIDAD SUPRA VO₂MAX (CAN)</div><div class="col-rango">{{ ritmo_actual.can_min }} - {{ ritmo_actual.can_max }}</div></div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    <details class="ritmo-history-box">
+        <summary>Historial de controles{% if ritmos_anteriores %} ({{ ritmos_anteriores|length }}){% endif %}</summary>
+        <div class="ritmo-history-content">
+            {% if ritmos_anteriores %}
+                <div class="ritmo-history-list">
+                    {% for ritmo in ritmos_anteriores %}
+                        <div class="ritmo-history-item">
+                            <div class="ritmo-history-date">{{ ritmo.fecha|date:"j \d\e F \d\e Y" }}</div>
+                            {% if tipo_ritmo == 'trail' %}
+                                <div class="ritmo-history-line">Distancia: {{ ritmo.distancia_test_m }} m · Tiempo: {{ ritmo.tiempo_test|default:"—" }} · FC Máx: {{ ritmo.fc_maxima_ppm|default:"—" }}</div>
+                                <div class="ritmo-history-line">Z0: {{ ritmo.reg_min }} - {{ ritmo.reg_max }} · Z1: {{ ritmo.r1_min }} - {{ ritmo.r1_max }} · Z2: {{ ritmo.r2_min }} - {{ ritmo.r2_max }} · Z3: {{ ritmo.r3_min }} - {{ ritmo.r3_max }} · Z4: {{ ritmo.ul_min }} - {{ ritmo.ul_max }} · Z5: {{ ritmo.ca_min }} - {{ ritmo.ca_max }}</div>
+                            {% else %}
+                                <div class="ritmo-history-line">Distancia: {{ ritmo.distancia_test_m }} m · Tiempo: {{ ritmo.tiempo_test|default:"—" }} · Paso VO₂max: {{ ritmo.paso_vo2max|default:"—" }} · VO₂max: {{ ritmo.vo2max|default:"—" }}</div>
+                                <div class="ritmo-history-line">REG: {{ ritmo.reg_min }} - {{ ritmo.reg_max }} · R1: {{ ritmo.r1_min }} - {{ ritmo.r1_max }} · R2: {{ ritmo.r2_min }} - {{ ritmo.r2_max }} · R3: {{ ritmo.r3_min }} - {{ ritmo.r3_max }} · UL: {{ ritmo.ul_min }} - {{ ritmo.ul_max }} · CA: {{ ritmo.ca_min }} - {{ ritmo.ca_max }} · CAN: {{ ritmo.can_min }} - {{ ritmo.can_max }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="ritmo-history-empty">Todavía no hay controles anteriores para este corredor.</div>
+            {% endif %}
+        </div>
+    </details>
+
+    <form method="post" class="form-card ritmo-form">
+    {% csrf_token %}
+        <input type="hidden" name="tipo" value="{{ tipo_ritmo }}">
+
+    <div class="ritmo-form-heading">Agregar nuevo control</div>
+
+    {{ form.non_field_errors }}
+
+    <div class="ritmo-seccion">
+        <h2 class="ritmo-subtitle">Test</h2>
+
+        <div class="ritmo-grid-2">
+            <div class="field">
+            <label>Fecha</label>
+            {{ form.fecha }}
+            </div>
+
+            <div class="field">
+            <label>Distancia test (m)</label>
+            {{ form.distancia_test_m }}
+            </div>
+
+            <div class="field">
+            <label>Tiempo test</label>
+            {{ form.tiempo_test }}
+            </div>
+
+            {% if tipo_ritmo == 'trail' %}
+                <div class="field">
+                <label>FC Máxima (PPM)</label>
+                {{ form.fc_maxima_ppm }}
+                </div>
+            {% else %}
+                <div class="field">
+                <label>Paso VO₂max</label>
+                {{ form.paso_vo2max }}
+                </div>
+
+                <div class="field">
+                <label>VO₂max</label>
+                {{ form.vo2max }}
+                </div>
+            {% endif %}
+        </div>
+
+        </div>
+
+        <div class="ritmo-seccion">
+        <h2 class="ritmo-subtitle">Zonas {% if tipo_ritmo == 'trail' %}(Trail){% else %}(Runners){% endif %}</h2>
+
+        <div class="zonas-grid">
+            <div class="zona-card">
+            <div class="zona-title">{% if tipo_ritmo == 'trail' %}Zona 0{% else %}REG{% endif %}</div>
+            <div class="zona-pair">
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="field"><label>FC inferior</label>{{ form.reg_min }}</div>
+                    <div class="field"><label>FC superior</label>{{ form.reg_max }}</div>
+                {% else %}
+                    <div class="field"><label>Max</label>{{ form.reg_min }}</div>
+                    <div class="field"><label>Min</label>{{ form.reg_max }}</div>
+                {% endif %}
+            </div>
+            </div>
+
+            <div class="zona-card">
+            <div class="zona-title">{% if tipo_ritmo == 'trail' %}Zona 1{% else %}R1{% endif %}</div>
+            <div class="zona-pair">
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="field"><label>FC inferior</label>{{ form.r1_min }}</div>
+                    <div class="field"><label>FC superior</label>{{ form.r1_max }}</div>
+                {% else %}
+                    <div class="field"><label>Max</label>{{ form.r1_min }}</div>
+                    <div class="field"><label>Min</label>{{ form.r1_max }}</div>
+                {% endif %}
+            </div>
+            </div>
+
+            <div class="zona-card">
+            <div class="zona-title">{% if tipo_ritmo == 'trail' %}Zona 2{% else %}R2{% endif %}</div>
+            <div class="zona-pair">
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="field"><label>FC inferior</label>{{ form.r2_min }}</div>
+                    <div class="field"><label>FC superior</label>{{ form.r2_max }}</div>
+                {% else %}
+                    <div class="field"><label>Max</label>{{ form.r2_min }}</div>
+                    <div class="field"><label>Min</label>{{ form.r2_max }}</div>
+                {% endif %}
+            </div>
+            </div>
+
+            <div class="zona-card">
+            <div class="zona-title">{% if tipo_ritmo == 'trail' %}Zona 3{% else %}R3{% endif %}</div>
+            <div class="zona-pair">
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="field"><label>FC inferior</label>{{ form.r3_min }}</div>
+                    <div class="field"><label>FC superior</label>{{ form.r3_max }}</div>
+                {% else %}
+                    <div class="field"><label>Max</label>{{ form.r3_min }}</div>
+                    <div class="field"><label>Min</label>{{ form.r3_max }}</div>
+                {% endif %}
+            </div>
+            </div>
+
+            <div class="zona-card">
+            <div class="zona-title">{% if tipo_ritmo == 'trail' %}Zona 4{% else %}UL{% endif %}</div>
+            <div class="zona-pair">
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="field"><label>FC inferior</label>{{ form.ul_min }}</div>
+                    <div class="field"><label>FC superior</label>{{ form.ul_max }}</div>
+                {% else %}
+                    <div class="field"><label>Max</label>{{ form.ul_min }}</div>
+                    <div class="field"><label>Min</label>{{ form.ul_max }}</div>
+                {% endif %}
+            </div>
+            </div>
+
+            <div class="zona-card">
+            <div class="zona-title">{% if tipo_ritmo == 'trail' %}Zona 5{% else %}CA{% endif %}</div>
+            <div class="zona-pair">
+                {% if tipo_ritmo == 'trail' %}
+                    <div class="field"><label>FC inferior</label>{{ form.ca_min }}</div>
+                    <div class="field"><label>FC superior</label>{{ form.ca_max }}</div>
+                {% else %}
+                    <div class="field"><label>Max</label>{{ form.ca_min }}</div>
+                    <div class="field"><label>Min</label>{{ form.ca_max }}</div>
+                {% endif %}
+            </div>
+            </div>
+
+            <div class="zona-card">
+            {% if tipo_ritmo == 'runners' %}
+            <div class="zona-title">CAN</div>
+            <div class="zona-pair">
+                <div class="field"><label>Max</label>{{ form.can_min }}</div>
+                <div class="field"><label>Min</label>{{ form.can_max }}</div>
+            </div>
+            {% endif %}
+            </div>
+        </div>
+        </div>
+
+
+    <div class="form-actions">
+        <button type="submit" class="page-cta page-cta-sm">
+                        Crear nuevo control
+        </button>
+    </div>
+  </form>
+</div>
+
+<script>
+    (function () {
+        const fechaInput = document.getElementById("id_fecha");
+        const fechaLabel = fechaInput ? fechaInput.closest(".field")?.querySelector("label") : null;
+
+        if (!fechaInput) return;
+
+        function openDatePicker() {
+            if (typeof fechaInput.showPicker === "function") {
+                try {
+                    fechaInput.showPicker();
+                } catch (error) {
+                }
+            }
+        }
+
+        fechaInput.addEventListener("focus", openDatePicker);
+        fechaInput.addEventListener("click", openDatePicker);
+
+        if (fechaLabel) {
+            fechaLabel.style.cursor = "pointer";
+            fechaLabel.addEventListener("click", function () {
+                fechaInput.focus();
+                openDatePicker();
+            });
+        }
+    })();
+
+    (function () {
+        // Encadena zonas: el inicio (Max mostrado) de la siguiente zona
+        // toma por defecto el cierre (Min mostrado) de la zona anterior.
+        const links = [
+            { from: "id_reg_max", to: "id_r1_min" },
+            { from: "id_r1_max", to: "id_r2_min" },
+            { from: "id_r2_max", to: "id_r3_min" },
+            { from: "id_r3_max", to: "id_ul_min" },
+            { from: "id_ul_max", to: "id_ca_min" },
+            { from: "id_ca_max", to: "id_can_min" },
+        ];
+
+        function syncIfEmpty(sourceInput, targetInput) {
+            if (!sourceInput || !targetInput) return;
+            const source = (sourceInput.value || "").trim();
+            const target = (targetInput.value || "").trim();
+            if (source && !target) {
+                targetInput.value = source;
+            }
+        }
+
+        links.forEach(function (link) {
+            const sourceInput = document.getElementById(link.from);
+            const targetInput = document.getElementById(link.to);
+            if (!sourceInput || !targetInput) return;
+
+            // Al cargar, completa solo si destino está vacío.
+            syncIfEmpty(sourceInput, targetInput);
+
+            // Al editar, vuelve a sugerir sin pisar valores existentes.
+            sourceInput.addEventListener("change", function () {
+                syncIfEmpty(sourceInput, targetInput);
+            });
+            sourceInput.addEventListener("blur", function () {
+                syncIfEmpty(sourceInput, targetInput);
+            });
+        });
+    })();
+</script>
+
+<style>
+    .ritmo-page-title {
+        font-size: 44px;
+        line-height: 1.1;
+    }
+
+    @media (max-width: 640px) {
+        .ritmo-page-title {
+            font-size: 36px;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .ritmo-runner-name {
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}

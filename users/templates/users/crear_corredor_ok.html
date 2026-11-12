@@ -1,0 +1,30 @@
+{% extends "users/base.html" %}
+{% block title %}Corredor creado{% endblock %}
+
+{% block content %}
+<div class="app-page">
+  <div class="main-content">
+    <div class="page-topbar">
+      <a class="page-back" href="{% url 'gestion_corredores' %}">← Volver</a>
+      <h1>Corredor creado</h1>
+    </div>
+
+    <div class="confirm-card">
+      <div class="confirm-title">Listo ✅</div>
+
+      <div class="confirm-box">
+        <div class="confirm-line">Usuario: <span>{{ username }}</span></div>
+        <div class="confirm-line">Contraseña temporal: <span>{{ temp_password }}</span></div>
+      </div>
+
+      <p style="opacity:.85;font-size:13px;margin-top:10px;">
+        Copia estos datos ahora. Esta contraseña solo se muestra una vez.
+      </p>
+
+      <div class="confirm-actions">
+        <a class="page-cta" href="{% url 'gestion_corredores' %}">Volver a corredores</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

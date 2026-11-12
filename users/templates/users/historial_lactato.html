@@ -1,0 +1,322 @@
+{% extends "users/base.html" %}
+{% block title %}Historial de lactato{% endblock %}
+{% block body_class %}app-page{% endblock %}
+
+{% block content %}
+<div class="page-topbar">
+  <a class="page-back" href="{% url 'gestion_corredores' %}" onclick="if (window.history.length > 1) { window.history.back(); return false; }">← Volver</a>
+  <h1>Historial de lactato</h1>
+  <div></div>
+</div>
+
+<div class="profile-card lactato-shell">
+  <div class="lactato-header">
+    <div class="lactato-runner">{{ perfil.nombre }} {{ perfil.apellido }}</div>
+    <div class="lactato-sub">Registro manual de umbral de lactato y ritmo</div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="msg {% if message.tags %}msg-{{ message.tags }}{% endif %}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="lactato-grid">
+    <div class="lactato-card">
+      <h3>Umbral de lactato</h3>
+      {% if registros %}
+        <div class="lactato-table-wrap">
+          <table class="lactato-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Umbral</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in registros %}
+                <tr>
+                  <td>{{ r.fecha|date:"d/m/Y" }}</td>
+                  <td>{{ r.umbral_lactato }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="lactato-empty">Sin registros</div>
+      {% endif %}
+    </div>
+
+    <div class="lactato-card">
+      <h3>Ritmo</h3>
+      {% if registros %}
+        <div class="lactato-table-wrap">
+          <table class="lactato-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Ritmo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in registros %}
+                <tr>
+                  <td>{{ r.fecha|date:"d/m/Y" }}</td>
+                  <td>{{ r.ritmo }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="lactato-empty">Sin registros</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <hr class="lactato-separator">
+  <h3 class="lactato-form-title">Agregar registro</h3>
+
+  <form method="post" action="" class="form-card lactato-form">
+    {% csrf_token %}
+    <div class="form-grid">
+      <p class="lactato-field-date">
+        {{ form.fecha.label_tag }}
+        {{ form.fecha }}
+      </p>
+      <p>
+        {{ form.umbral_lactato.label_tag }}
+        {{ form.umbral_lactato }}
+      </p>
+      <p>
+        {{ form.ritmo.label_tag }}
+        {{ form.ritmo }}
+      </p>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="page-cta page-cta-sm">Guardar registro</button>
+    </div>
+    {% if form.errors %}
+      <div style="color:#e74c3c;font-size:0.95rem;margin-top:6px;">{{ form.errors }}</div>
+    {% endif %}
+  </form>
+
+  {% if registros %}
+    <div class="lactato-delete-list">
+      <h4>Eliminar registro específico</h4>
+      <div class="lactato-table-wrap">
+        <table class="lactato-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Umbral</th>
+              <th>Ritmo</th>
+              <th>Eliminar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in registros %}
+              <tr>
+                <td>{{ r.fecha|date:"d/m/Y" }}</td>
+                <td>{{ r.umbral_lactato }}</td>
+                <td>{{ r.ritmo }}</td>
+                <td class="actions-cell">
+                  <form method="post" action="" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="eliminar_id" value="{{ r.id }}">
+                    <button type="submit" class="delete-icon-btn" title="Eliminar registro" aria-label="Eliminar registro">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"/>
+                      </svg>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  (function () {
+    const fechaInput = document.getElementById("id_fecha");
+    if (!fechaInput) return;
+
+    function openNativePicker() {
+      if (typeof fechaInput.showPicker === "function") {
+        try {
+          fechaInput.showPicker();
+        } catch (error) {
+        }
+      }
+    }
+
+    fechaInput.addEventListener("click", openNativePicker);
+    fechaInput.addEventListener("focus", openNativePicker);
+  })();
+</script>
+
+<style>
+  .lactato-shell {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .lactato-header {
+    margin-bottom: 14px;
+  }
+
+  .lactato-runner {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #ffeb3b;
+  }
+
+  .lactato-sub {
+    color: rgba(245, 245, 245, 0.78);
+    margin-top: 4px;
+    font-size: 0.95rem;
+  }
+
+  .lactato-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .lactato-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+  }
+
+  .lactato-card h3 {
+    margin: 0 0 8px;
+    color: #b5d1ff;
+    font-size: 1rem;
+  }
+
+  .lactato-table-wrap {
+    overflow-x: auto;
+  }
+
+  .lactato-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  .lactato-table th,
+  .lactato-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: left;
+  }
+
+  .lactato-table th {
+    color: #ffe082;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .lactato-empty {
+    color: rgba(245, 245, 245, 0.75);
+    font-size: 0.95rem;
+  }
+
+  .lactato-separator {
+    margin: 18px 0 14px;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .lactato-form-title {
+    color: #ffe082;
+    font-size: 1.04rem;
+    margin-bottom: 10px;
+  }
+
+  .lactato-form {
+    margin-top: 6px;
+  }
+
+  #id_umbral_lactato::-webkit-outer-spin-button,
+  #id_umbral_lactato::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  #id_umbral_lactato {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .lactato-delete-list {
+    margin-top: 14px;
+  }
+
+  .lactato-delete-list h4 {
+    margin: 0 0 8px;
+    color: #b5d1ff;
+    font-size: 0.98rem;
+  }
+
+  .lactato-table td.actions-cell {
+    text-align: center;
+    min-width: 96px;
+    width: 96px;
+  }
+
+  .delete-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(231, 76, 60, 0.18);
+    color: #ffd7d1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+  }
+
+  .delete-icon-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+  }
+
+  .delete-icon-btn:hover {
+    background: rgba(231, 76, 60, 0.32);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 780px) {
+    .lactato-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .lactato-shell {
+      padding: 14px;
+    }
+
+    .lactato-table th,
+    .lactato-table td {
+      padding: 8px;
+      font-size: 0.92rem;
+    }
+  }
+</style>
+{% endblock %}
