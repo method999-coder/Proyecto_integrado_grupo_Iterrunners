@@ -14,9 +14,6 @@ urlpatterns = [
     path("cambiar-password/", views.cambiar_password, name="cambiar_password"),
     path("registro-actividad/", views.registro_actividad, name="registro_actividad"),
     
-    path("feed/", views.feed, name="feed"),
-    path("feed/<int:actividad_id>/like/", views.feed_like_toggle, name="feed_like_toggle"),
-    path("feed/<int:actividad_id>/comentar/", views.feed_comentar, name="feed_comentar"),
 
     # Admin: Corredores
     path("gestion/corredores/", views.gestion_corredores, name="gestion_corredores"),

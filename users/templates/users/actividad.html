@@ -14,10 +14,6 @@
     <a class="act-back" href="{% url 'home' %}">← Volver</a>
   </div>
 
-  <p class="act-consent-note">
-    Las actividades nuevas de Strava se publican automáticamente en el feed del club.
-  </p>
-
   {% if actividades %}
     <div class="act-list">
       {% for a in actividades %}
@@ -110,15 +106,6 @@
 
   .act-list{display:flex;flex-direction:column;gap:6px;max-width:720px;margin:0 auto}
 
-  .act-consent-note{
-    max-width:720px;
-    margin:0 auto 10px;
-    padding:0 14px;
-    font-size:12px;
-    color:rgba(255,255,255,.76);
-    text-align:center;
-  }
-  
   .activity-date{
     font-size:15px;
     color:rgba(255,255,255,0.7);
@@ -262,19 +249,6 @@
 
   .act-empty{color:#ddd;margin-top:18px;opacity:.9;text-align:center;padding:30px;background:rgba(0,0,0,0.2);border-radius:12px}
 
-  .act-feed-link{
-    background:transparent;
-    border:none;
-    color:#111;
-    font-weight:700;
-    font-size:12px;
-    text-decoration:underline;
-    cursor:pointer;
-    padding:0;
-    margin:0;
-    white-space:nowrap;
-  }
-
   .act-legal{
     max-width:720px;
     margin:18px auto 0;
@@ -307,7 +281,6 @@
     .act-dist-unit{font-size:14px}
     .act-stat-label{font-size:9px}
     .act-stat-value{font-size:15px}
-    .act-feed-link{font-size:11px}
   }
 
   @media (max-width: 480px){

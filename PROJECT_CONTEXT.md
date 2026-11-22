@@ -4,7 +4,7 @@
 
 Iter Runners es una aplicación Django para la administración de clubes de running.
 
-La plataforma permite gestionar clubes, grupos, corredores, calendarios de entrenamiento, cumplimiento diario, feed de actividades, estadísticas y actividades sincronizadas desde Strava.
+La plataforma permite gestionar clubes, grupos, corredores, calendarios de entrenamiento, cumplimiento diario, estadísticas y actividades sincronizadas desde Strava.
 
 El sistema está orientado a tres perfiles principales: administradores, profesores y corredores. Además, mantiene separación por club para que profesores y administradores funcionales vean solo la información correspondiente a su organización, salvo usuarios superuser.
 
@@ -29,7 +29,7 @@ La aplicación está diseñada como plataforma web responsiva y cuenta con sopor
 - `iterrunners/`: configuración principal del proyecto Django.
 - `users/`: aplicación principal del sistema.
 - `users/models.py`: modelos de negocio.
-- `users/views.py`: vistas, permisos, integración Strava, feed y paneles.
+- `users/views.py`: vistas, permisos, integración Strava y paneles.
 - `users/urls.py`: rutas funcionales de la app.
 - `users/forms.py`: formularios para corredores, grupos, ritmos, entrenamientos y registros manuales.
 - `users/admin.py`: personalización del Django Admin.
@@ -168,7 +168,6 @@ Campos principales:
 - `comuna`
 - `region`
 - `pais`
-- `publicar_en_feed`
 
 Incluye propiedades para mostrar distancia, tiempo, ritmo, velocidad, desnivel, frecuencia cardíaca y ubicación.
 
@@ -185,10 +184,6 @@ Campos principales:
 - `realizada_at`
 - `comentario`
 - `audit_meta`
-
-### FeedLike y FeedComentario
-
-Permiten interacción social sobre actividades Strava publicadas en el feed.
 
 ### CarreraManual
 
@@ -250,7 +245,6 @@ Capacidades detectadas:
 - Conectar/desconectar Strava.
 - Ver actividades Strava propias.
 - Ver estadísticas.
-- Ver feed.
 - Ver compañeros de grupo.
 - Ver perfil y ritmos.
 - Agregar historial manual de carreras propias en ciertos casos.
@@ -370,18 +364,6 @@ Incluye:
 - Volumen de entrenamientos.
 - Navegación por semana y mes.
 - Protección para no navegar hacia periodos futuros.
-
-### Feed
-
-Feed social basado en actividades Strava publicadas.
-
-Incluye:
-
-- Actividades publicadas desde Strava.
-- Likes.
-- Comentarios.
-- Conteo de interacciones.
-- Orden por fecha de actividad.
 
 ### Mi Grupo
 
@@ -527,7 +509,6 @@ Templates detectados:
 - `actividad.html`: actividades Strava propias.
 - `strava_activities.html`: listado de corredores para revisión Strava.
 - `strava_activities_runner_detail.html`: actividades Strava de un corredor.
-- `feed.html`: feed social.
 - `estadisticas.html`: métricas de cumplimiento y volumen.
 - `perfil.html`: perfil y ritmos.
 - `mi_grupo.html`: compañeros de grupo.
@@ -671,7 +652,6 @@ Coberturas detectadas:
 - Scoping por club para profesores.
 - Señal de creación de perfil.
 - Creación de corredor con club del profesor.
-- Feed, likes y comentarios.
 - Eliminación de datos Strava.
 - Seguridad de OAuth state en Strava.
 
@@ -754,7 +734,7 @@ En desarrollo local, el backend por defecto es `django.core.mail.backends.consol
 - Las variables sensibles se manejan mediante entorno: `SECRET_KEY`, `DATABASE_URL`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`, `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`.
 - `.env` y `db.sqlite3` están excluidos en `.gitignore`.
 - En producción, con `DEBUG=False`, se activan medidas como cookies seguras, redirección SSL, HSTS, `X_FRAME_OPTIONS = "DENY"` y `SECURE_CONTENT_TYPE_NOSNIFF`.
-- Existen pruebas automatizadas para permisos por club, feed y seguridad básica del flujo OAuth de Strava.
+- Existen pruebas automatizadas para permisos por club y seguridad básica del flujo OAuth de Strava.
 
 ### Riesgos Detectados
 
@@ -814,7 +794,7 @@ Antes de modificar código:
 1. Analizar modelos, vistas, rutas y templates relacionados.
 2. Verificar permisos por rol y por club.
 3. Revisar si ya existe helper o lógica reutilizable.
-4. Evaluar impacto en Strava, cumplimiento y feed.
+4. Evaluar impacto en Strava, cumplimiento y estadísticas.
 5. Confirmar si el cambio requiere migración.
 6. Proponer plan si el cambio es grande.
 7. Implementar cambios pequeños.

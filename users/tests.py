@@ -12,7 +12,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.utils import timezone
 
-from .models import CumplimientoEntrenamiento, EntrenamientoDiario, FeedComentario, FeedLike, Grupo, Perfil, StravaActividad, Club
+from .models import CumplimientoEntrenamiento, EntrenamientoDiario, Grupo, Perfil, StravaActividad, Club
 
 
 class CriticalViewsTests(TestCase):
@@ -589,87 +589,6 @@ class CriticalViewsTests(TestCase):
 		response = self.client.get(reverse("cumplimiento_cumplidos", args=[grupo_b.id]))
 
 		self.assertEqual(response.status_code, 404)
-
-	def test_feed_muestra_actividades_strava_de_corredores(self):
-		grupo = Grupo.objects.create(nombre="Feed Group")
-		user, perfil = self._create_user_with_profile(
-			username="feed_user",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo,
-		)
-		_, perfil_profesor = self._create_user_with_profile(
-			username="coach_feed",
-			role="profesor",
-			django_group_name="Profesor",
-			grupo=grupo,
-		)
-
-		hoy = timezone.localdate()
-		StravaActividad.objects.create(
-			perfil=perfil,
-			strava_id=991001,
-			name="Visible Runner",
-			type="Run",
-			start_date=timezone.now(),
-			distance_m=7000,
-			moving_time_s=2100,
-		)
-		StravaActividad.objects.create(
-			perfil=perfil_profesor,
-			strava_id=991002,
-			name="No Feed Coach",
-			type="Run",
-			start_date=timezone.now(),
-			distance_m=7000,
-			moving_time_s=2100,
-		)
-
-		self.client.login(username=user.username, password="testpass123")
-		response = self.client.get(reverse("feed"))
-
-		self.assertEqual(response.status_code, 200)
-		posts = response.context["feed_posts"]
-		self.assertEqual(len(posts), 1)
-		self.assertEqual(posts[0].name, "Visible Runner")
-
-	def test_feed_like_y_comentario(self):
-		grupo = Grupo.objects.create(nombre="Feed Group 2")
-		owner_user, owner_perfil = self._create_user_with_profile(
-			username="owner_feed",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo,
-		)
-		actor_user, _ = self._create_user_with_profile(
-			username="actor_feed",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo,
-		)
-
-		post = StravaActividad.objects.create(
-			perfil=owner_perfil,
-			strava_id=992001,
-			name="Post feed",
-			type="Run",
-			start_date=timezone.now(),
-			distance_m=10000,
-			moving_time_s=3200,
-		)
-
-		self.client.login(username=actor_user.username, password="testpass123")
-		response_like = self.client.post(reverse("feed_like_toggle", args=[post.id]), follow=True)
-		self.assertEqual(response_like.status_code, 200)
-		self.assertTrue(FeedLike.objects.filter(actividad=post, usuario=actor_user).exists())
-
-		response_comment = self.client.post(reverse("feed_comentar", args=[post.id]), {
-			"texto": "Buen entrenamiento",
-		}, follow=True)
-		self.assertEqual(response_comment.status_code, 200)
-		self.assertTrue(
-			FeedComentario.objects.filter(actividad=post, usuario=actor_user, texto="Buen entrenamiento").exists()
-		)
 
 	# INICIO - Cobertura del aislamiento de Strava
 	@override_settings(STRAVA_ENABLED=False)

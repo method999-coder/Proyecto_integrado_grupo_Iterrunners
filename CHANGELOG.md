@@ -32,6 +32,16 @@ Pendientes:
 
 ---
 
+### 2026-11-22 - Retiro del feed de actividades
+
+Se retiraron el acceso al feed, los likes, los comentarios sociales y la publicación automática. Las actividades Strava siguen sincronizándose y se pueden consultar en Actividades.
+
+Para probar localmente, ejecutar manage.py check y la suite con SQLite en memoria y migraciones desactivadas. Desde Inicio, verificar que el acceso a Actividades se mantiene.
+
+Los modelos sociales y el campo de publicación quedan pendientes de la migración definitiva.
+
+---
+
 ### 2026-11-10 - Aislamiento de Iterrunners-Dev
 
 <!-- INICIO - Registro de los cambios de aislamiento -->

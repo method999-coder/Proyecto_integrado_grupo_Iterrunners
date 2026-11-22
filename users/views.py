@@ -22,7 +22,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 from .forms import CrearCorredorForm, EditarCorredorForm, EntrenamientoDiarioForm, EntrenamientoRecursoForm, GrupoForm, RitmoForm, CarreraManualForm, LactatoManualForm
-from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, FeedComentario, FeedLike, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, LactatoManual, Club
+from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, LactatoManual, Club
 from django.db.models import Count, Max, Q
 import urllib.parse
 import requests
@@ -259,7 +259,6 @@ def _strava_sync_latest_activities(perfil, per_page=30):
                     "total_elevation_gain_m": a.get("total_elevation_gain"),
                     "average_heartrate": a.get("average_heartrate"),
                     "max_heartrate": a.get("max_heartrate"),
-                    "publicar_en_feed": True,
                     "start_lat": None,
                     "start_lng": None,
                     "comuna": None,
@@ -586,97 +585,6 @@ def home(request):
         "cumpleanos_hoy": cumpleanos_hoy,
     })
 
-
-
-@login_required
-def feed(request):
-    perfil = (
-        Perfil.objects
-        .filter(usuario=request.user)
-        .select_related("grupo")
-        .first()
-    )
-
-    feed_posts = list(
-        StravaActividad.objects
-        .filter(perfil__rol="corredor", publicar_en_feed=True)
-        .select_related(
-            "perfil",
-            "perfil__usuario",
-            "perfil__grupo",
-        )
-        .prefetch_related("feed_comentarios", "feed_comentarios__usuario")
-        .annotate(
-            likes_total=Count("feed_likes", distinct=True),
-            comentarios_total=Count("feed_comentarios", distinct=True),
-        )
-        .order_by("-start_date", "-updated_at")[:60]
-    )
-
-    liked_ids = set(
-        FeedLike.objects
-        .filter(usuario=request.user, actividad_id__in=[post.id for post in feed_posts])
-        .values_list("actividad_id", flat=True)
-    )
-
-    for post in feed_posts:
-        post.user_liked = post.id in liked_ids
-
-    return render(request, "users/feed.html", {
-        "perfil": perfil,
-        "feed_posts": feed_posts,
-    })
-
-
-@login_required
-def feed_like_toggle(request, actividad_id):
-    if request.method != "POST":
-        return _forbidden("Método no permitido.")
-
-    actividad = get_object_or_404(
-        StravaActividad.objects.filter(
-            perfil__rol="corredor",
-            publicar_en_feed=True,
-        ),
-        id=actividad_id,
-    )
-
-    like = FeedLike.objects.filter(actividad=actividad, usuario=request.user).first()
-    if like:
-        like.delete()
-    else:
-        FeedLike.objects.create(actividad=actividad, usuario=request.user)
-
-    return redirect(f"{reverse('feed')}#post-{actividad_id}")
-
-
-@login_required
-def feed_comentar(request, actividad_id):
-    if request.method != "POST":
-        return _forbidden("Método no permitido.")
-
-    actividad = get_object_or_404(
-        StravaActividad.objects.filter(
-            perfil__rol="corredor",
-            publicar_en_feed=True,
-        ),
-        id=actividad_id,
-    )
-
-    texto = (request.POST.get("texto") or "").strip()
-    if not texto:
-        return redirect(f"{reverse('feed')}#post-{actividad_id}")
-
-    if len(texto) > 300:
-        messages.error(request, "El comentario no puede superar 300 caracteres.")
-        return redirect(f"{reverse('feed')}#post-{actividad_id}")
-
-    FeedComentario.objects.create(
-        actividad=actividad,
-        usuario=request.user,
-        texto=texto,
-    )
-    return redirect(f"{reverse('feed')}#post-{actividad_id}")
 
 
 def _parse_tiempo_a_segundos(value):
