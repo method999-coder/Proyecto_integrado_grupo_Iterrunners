@@ -225,7 +225,6 @@ class StravaActividad(models.Model):
     pais = models.CharField(max_length=120, blank=True, null=True)
 
     # Metadatos
-    publicar_en_feed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -318,13 +317,6 @@ class StravaActividad(models.Model):
 
 
 class CumplimientoEntrenamiento(models.Model):
-    DISTANCIA_CHOICES = [
-        (3, "3000m"),
-        (5, "5K"),
-        (10, "10K"),
-        (21, "21K"),
-        (42, "42K"),
-    ]
 
     perfil = models.ForeignKey("Perfil", on_delete=models.CASCADE, related_name="cumplimientos")
     entrenamiento = models.ForeignKey(
@@ -339,8 +331,6 @@ class CumplimientoEntrenamiento(models.Model):
     realizada = models.BooleanField(default=False)
     realizada_at = models.DateTimeField(null=True, blank=True)
     comentario = models.TextField(blank=True, default="")
-    publicar_ranking = models.BooleanField(default=False)
-    ranking_distancia = models.PositiveSmallIntegerField(choices=DISTANCIA_CHOICES, null=True, blank=True)
 
     # Auditoría y snapshot: guarda un pequeño JSON con datos relevantes
     audit_meta = models.JSONField(null=True, blank=True)
@@ -359,109 +349,11 @@ class CumplimientoEntrenamiento(models.Model):
             self.realizada_at = timezone.now()
         if not self.realizada:
             self.realizada_at = None
-            self.publicar_ranking = False
-            self.ranking_distancia = None
         super().save(*args, **kwargs)
 
     def __str__(self):
         estado = "✅" if self.realizada else "⏳"
         return f"{self.perfil} - {self.fecha} {estado}"
-
-
-class RankingEntry(models.Model):
-    """Entrada canónica de ranking: única por perfil + distancia.
-
-    Mantiene un enlace opcional al `CumplimientoEntrenamiento`. El modelo
-    es la fuente de verdad para quién está en el ranking para una distancia.
-    """
-    id = models.AutoField(primary_key=True)
-    perfil = models.ForeignKey("Perfil", on_delete=models.CASCADE, related_name="ranking_entries")
-    ranking_distancia = models.PositiveSmallIntegerField(choices=CumplimientoEntrenamiento.DISTANCIA_CHOICES)
-    cumplimiento = models.ForeignKey(
-        "CumplimientoEntrenamiento",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="as_ranking_entry",
-    )
-    # tiempo en segundos como snapshot para comparar (menor = mejor)
-    time_seconds = models.IntegerField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=("perfil", "ranking_distancia"),
-                name="unique_perfil_ranking",
-            )
-        ]
-
-    def __str__(self):
-        return f"Ranking {self.perfil} - {self.ranking_distancia}K"
-
-
-class RankingAudit(models.Model):
-    """Historial inmutable de intentos/acciones sobre rankings.
-
-    Guarda snapshot JSON, actor, origen y resultado. No debe borrarse por cascada
-    cuando se eliminan entidades relacionadas.
-    """
-    id = models.AutoField(primary_key=True)
-    ACTION_CHOICES = [
-        ("reconstruir", "Reconstruir"),
-        ("subir_al_ranking", "Subir al ranking"),
-        ("auto_feed", "Publicación automática en feed"),
-    ]
-
-    perfil = models.ForeignKey("Perfil", on_delete=models.SET_NULL, null=True, blank=True)
-    club = models.ForeignKey("Club", on_delete=models.SET_NULL, null=True, blank=True)
-    cumplimiento = models.ForeignKey("CumplimientoEntrenamiento", on_delete=models.SET_NULL, null=True, blank=True)
-    entrenamiento = models.ForeignKey("EntrenamientoDiario", on_delete=models.SET_NULL, null=True, blank=True)
-    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    action = models.CharField(max_length=40, choices=ACTION_CHOICES)
-    origin = models.CharField(max_length=40, blank=True)
-    distance_m = models.IntegerField(null=True, blank=True)
-    km = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
-    suggested_ranking = models.PositiveSmallIntegerField(choices=CumplimientoEntrenamiento.DISTANCIA_CHOICES, null=True, blank=True)
-    accepted = models.BooleanField(default=False)
-    published_ranking = models.BooleanField(default=False)
-    snapshot = models.JSONField(null=True, blank=True)
-    comment = models.TextField(blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"Audit {self.action} - {self.perfil} - {self.created_at}"
-
-
-class FeedLike(models.Model):
-    actividad = models.ForeignKey(
-        "StravaActividad",
-        on_delete=models.CASCADE,
-        related_name="feed_likes",
-    )
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name="feed_likes")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("actividad", "usuario")
-        ordering = ["-created_at"]
-
-
-class FeedComentario(models.Model):
-    actividad = models.ForeignKey(
-        "StravaActividad",
-        on_delete=models.CASCADE,
-        related_name="feed_comentarios",
-    )
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name="feed_comentarios")
-    texto = models.CharField(max_length=300)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
 
 
 # --- Historial manual de carreras ---
@@ -485,16 +377,3 @@ class CarreraManual(models.Model):
 
     def __str__(self):
         return f"{self.get_distancia_m_display()} - {self.fecha} - {self.tiempo}"
-
-
-class LactatoManual(models.Model):
-    perfil = models.ForeignKey("Perfil", on_delete=models.CASCADE, related_name="lactatos_manuales")
-    fecha = models.DateField()
-    umbral_lactato = models.DecimalField(max_digits=4, decimal_places=1)
-    ritmo = models.CharField(max_length=20, help_text="Formato mm:ss /km")
-
-    class Meta:
-        ordering = ["-fecha", "-id"]
-
-    def __str__(self):
-        return f"Lactato {self.perfil} - {self.fecha}"

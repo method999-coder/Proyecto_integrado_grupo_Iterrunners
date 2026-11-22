@@ -1,6 +1,6 @@
 
 from django import forms
-from .models import CarreraManual, LactatoManual, Perfil, Grupo, Ritmo, EntrenamientoDiario, EntrenamientoRecurso
+from .models import CarreraManual, Perfil, Grupo, Ritmo, EntrenamientoDiario, EntrenamientoRecurso
 from django.contrib.auth.models import User
 
 
@@ -38,17 +38,6 @@ class CarreraManualForm(forms.ModelForm):
         widgets = {
             "fecha": forms.DateInput(attrs={"type": "date", "onclick": "if (this.showPicker) this.showPicker()"}, format="%Y-%m-%d"),
             "tiempo": forms.TextInput(attrs={"placeholder": "mm:ss o hh:mm:ss"}),
-        }
-
-
-class LactatoManualForm(forms.ModelForm):
-    class Meta:
-        model = LactatoManual
-        fields = ["fecha", "umbral_lactato", "ritmo"]
-        widgets = {
-            "fecha": forms.DateInput(attrs={"type": "date", "onclick": "if (this.showPicker) this.showPicker()"}, format="%Y-%m-%d"),
-            "umbral_lactato": forms.TextInput(attrs={"placeholder": "Ej: 4.0", "inputmode": "decimal"}),
-            "ritmo": forms.TextInput(attrs={"placeholder": "Ej: 4:15 /km"}),
         }
 
 

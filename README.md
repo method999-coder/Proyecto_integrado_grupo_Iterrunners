@@ -1,5 +1,11 @@
 # Proyecto_integrado_grupo_Iterrunners
 
+## Pruebas locales
+
+Ejecuta `python manage.py test` desde la raíz del proyecto. Django usa SQLite en memoria y aplica todas las migraciones a esa base temporal, incluida `users.0044`. La base se descarta al finalizar y la ejecución predeterminada no usa Supabase.
+
+Los demás comandos siguen usando la configuración habitual de PostgreSQL. Si defines `DJANGO_SETTINGS_MODULE` explícitamente, `manage.py` respeta ese valor también para las pruebas.
+
 ## Propuesta de Arquitectura - Cata (DEV)
 
 ### Arquitectura modular para Iterrunners

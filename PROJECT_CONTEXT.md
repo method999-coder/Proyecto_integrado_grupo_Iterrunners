@@ -4,7 +4,7 @@
 
 Iter Runners es una aplicación Django para la administración de clubes de running.
 
-La plataforma permite gestionar clubes, grupos, corredores, calendarios de entrenamiento, cumplimiento diario, rankings, estadísticas y actividades sincronizadas desde Strava.
+La plataforma permite gestionar clubes, grupos, corredores, calendarios de entrenamiento, cumplimiento diario, estadísticas y actividades sincronizadas desde Strava.
 
 El sistema está orientado a tres perfiles principales: administradores, profesores y corredores. Además, mantiene separación por club para que profesores y administradores funcionales vean solo la información correspondiente a su organización, salvo usuarios superuser.
 
@@ -29,7 +29,7 @@ La aplicación está diseñada como plataforma web responsiva y cuenta con sopor
 - `iterrunners/`: configuración principal del proyecto Django.
 - `users/`: aplicación principal del sistema.
 - `users/models.py`: modelos de negocio.
-- `users/views.py`: vistas, permisos, integración Strava, ranking, feed y paneles.
+- `users/views.py`: vistas, permisos, integración Strava y paneles.
 - `users/urls.py`: rutas funcionales de la app.
 - `users/forms.py`: formularios para corredores, grupos, ritmos, entrenamientos y registros manuales.
 - `users/admin.py`: personalización del Django Admin.
@@ -168,7 +168,6 @@ Campos principales:
 - `comuna`
 - `region`
 - `pais`
-- `publicar_en_feed`
 
 Incluye propiedades para mostrar distancia, tiempo, ritmo, velocidad, desnivel, frecuencia cardíaca y ubicación.
 
@@ -184,34 +183,7 @@ Campos principales:
 - `realizada`
 - `realizada_at`
 - `comentario`
-- `publicar_ranking`
-- `ranking_distancia`
 - `audit_meta`
-
-Puede alimentar el ranking si corresponde.
-
-### RankingEntry
-
-Fuente canónica del ranking por corredor y distancia.
-
-Campos principales:
-
-- `perfil`
-- `ranking_distancia`
-- `cumplimiento`
-- `time_seconds`
-
-Tiene restricción única por `perfil` y `ranking_distancia`.
-
-### RankingAudit
-
-Historial de acciones relacionadas con ranking.
-
-Registra actor, origen, distancia, snapshot, aceptación y publicación. Está pensado como auditoría inmutable.
-
-### FeedLike y FeedComentario
-
-Permiten interacción social sobre actividades Strava publicadas en el feed.
 
 ### CarreraManual
 
@@ -224,10 +196,6 @@ Distancias soportadas:
 - 10K
 - 21K
 - 42K
-
-### LactatoManual
-
-Historial manual de mediciones de lactato para corredores.
 
 ## Roles y Permisos
 
@@ -272,10 +240,7 @@ Capacidades detectadas:
 - Registrar cumplimiento de actividad.
 - Conectar/desconectar Strava.
 - Ver actividades Strava propias.
-- Publicar actividad al ranking cuando aplica.
 - Ver estadísticas.
-- Ver ranking.
-- Ver feed.
 - Ver compañeros de grupo.
 - Ver perfil y ritmos.
 - Agregar historial manual de carreras propias en ciertos casos.
@@ -298,7 +263,7 @@ Helper principal:
 
 ## Criterios de Autorización
 
-- Todo acceso de Profesor o Admin funcional a datos de corredores, grupos, entrenamientos, cumplimiento, actividades Strava, ranking o historiales debe validar pertenencia al mismo club.
+- Todo acceso de Profesor o Admin funcional a datos de corredores, grupos, entrenamientos, cumplimiento, actividades Strava o historiales debe validar pertenencia al mismo club.
 - Los usuarios superuser pueden acceder a información global cuando la vista lo permita explícitamente.
 - Los corredores solo deben acceder a información propia o a información compartida de su grupo/club según la funcionalidad.
 - Antes de agregar una vista nueva, revisar si existe lógica reutilizable de autorización por club.
@@ -355,7 +320,6 @@ Permite:
 - Crear, editar y eliminar ritmos.
 - Restablecer contraseña temporal.
 - Ver historial manual de carreras.
-- Ver historial de lactato.
 
 ### Gestión de Grupos
 
@@ -371,9 +335,6 @@ Características detectadas:
 
 - Usa el entrenamiento del día o fecha seleccionada.
 - Permite comentario.
-- Puede publicar marca en ranking.
-- Sugiere distancia de ranking según actividad Strava del día.
-- Solo permite ranking para entrenamientos de tipo carrera o control.
 - Si el corredor no tiene grupo, redirige al historial de carreras manuales.
 
 ### Cumplimiento
@@ -398,36 +359,6 @@ Incluye:
 - Volumen de entrenamientos.
 - Navegación por semana y mes.
 - Protección para no navegar hacia periodos futuros.
-
-### Ranking
-
-Ranking por distancia:
-
-- 3000m
-- 5K
-- 10K
-- 21K
-- 42K
-
-Características:
-
-- Usa `RankingEntry` como fuente canónica.
-- Ordena por menor tiempo.
-- Calcula ritmo.
-- Para corredores, filtra o contextualiza por grupo.
-- Registra acciones en `RankingAudit`.
-
-### Feed
-
-Feed social basado en actividades Strava publicadas.
-
-Incluye:
-
-- Actividades publicadas desde Strava.
-- Likes.
-- Comentarios.
-- Conteo de interacciones.
-- Orden por fecha de actividad.
 
 ### Mi Grupo
 
@@ -511,7 +442,7 @@ Reglas detectadas:
 - Considera actividades `Run` y `TrailRun`.
 - Prioriza la actividad de mayor distancia por fecha.
 - No sobrescribe cumplimientos ya realizados.
-- No sobrescribe pendientes con comentario o ranking manual.
+- No sobrescribe pendientes con comentarios registrados manualmente.
 
 ### Desconexión y Eliminación de Datos
 
@@ -557,8 +488,6 @@ Personalizaciones detectadas:
 - Admin de `Grupo` filtrado por club para no superusers.
 - Admin de `Perfil` filtrado por club para no superusers.
 - Admin de `Ritmo`, `EntrenamientoDiario`, `CumplimientoEntrenamiento`.
-- Admin de `RankingEntry` con acción auditada para eliminar entradas.
-- Admin de `RankingAudit`.
 
 ## Templates Principales
 
@@ -575,8 +504,6 @@ Templates detectados:
 - `actividad.html`: actividades Strava propias.
 - `strava_activities.html`: listado de corredores para revisión Strava.
 - `strava_activities_runner_detail.html`: actividades Strava de un corredor.
-- `feed.html`: feed social.
-- `ranking.html`: ranking por distancia.
 - `estadisticas.html`: métricas de cumplimiento y volumen.
 - `perfil.html`: perfil y ritmos.
 - `mi_grupo.html`: compañeros de grupo.
@@ -702,7 +629,6 @@ Formularios detectados:
 - `EntrenamientoDiarioForm`
 - `EntrenamientoRecursoForm`
 - `CarreraManualForm`
-- `LactatoManualForm`
 
 Los formularios de corredor filtran grupos por club cuando el usuario no es superuser.
 
@@ -716,13 +642,10 @@ Coberturas detectadas:
 - Cumplimiento diario.
 - Copia de mes de calendario.
 - Estadísticas sin navegación futura.
-- Restricciones de ranking por tipo de entrenamiento.
+- Registro de cumplimiento y comentarios para entrenamientos, carreras y controles.
 - Scoping por club para profesores.
 - Señal de creación de perfil.
 - Creación de corredor con club del profesor.
-- Ranking por distancia y grupo.
-- Sugerencia de ranking desde Strava.
-- Feed, likes y comentarios.
 - Eliminación de datos Strava.
 - Seguridad de OAuth state en Strava.
 
@@ -754,7 +677,6 @@ Coberturas detectadas:
 - Los corredores pueden recuperar su contraseña de forma autónoma mediante correo electrónico si tienen un email registrado.
 - Después de una recuperación autónoma exitosa, el corredor no debe quedar obligado a cambiar nuevamente la contraseña.
 - Las actividades Strava no deben duplicarse.
-- Los rankings utilizan únicamente actividades válidas definidas por la aplicación.
 - Los cumpleaños se muestran únicamente a usuarios del mismo club.
 - Los planes de entrenamiento son gestionados por profesores o administradores.
 - Los corredores pueden visualizar sus entrenamientos y actividades sincronizadas.
@@ -806,13 +728,13 @@ En desarrollo local, el backend por defecto es `django.core.mail.backends.consol
 - Las variables sensibles se manejan mediante entorno: `SECRET_KEY`, `DATABASE_URL`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`, `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS`.
 - `.env` y `db.sqlite3` están excluidos en `.gitignore`.
 - En producción, con `DEBUG=False`, se activan medidas como cookies seguras, redirección SSL, HSTS, `X_FRAME_OPTIONS = "DENY"` y `SECURE_CONTENT_TYPE_NOSNIFF`.
-- Existen pruebas automatizadas para permisos por club, feed, ranking y seguridad básica del flujo OAuth de Strava.
+- Existen pruebas automatizadas para permisos por club y seguridad básica del flujo OAuth de Strava.
 
 ### Riesgos Detectados
 
 - `restablecer_password_corredor` valida que el usuario sea profesor/admin, pero debe reforzarse para validar también que el corredor pertenezca al mismo club cuando el actor no sea superuser.
 - `asignar_grupo` filtra los grupos visibles por club, pero en el `POST` debe asegurar que el grupo elegido provenga del queryset ya filtrado.
-- `historial_carreras_manual` y `historial_lactato_manual` deben reforzar la validación por club para profesores/admins funcionales.
+- La vista `historial_carreras_manual` debe reforzar la validación por club para profesores/admins funcionales.
 - El Django Admin tiene scoping por club parcial: `GrupoAdmin` y `PerfilAdmin` filtran por club, pero otros modelos sensibles deberían revisarse.
 - Los tokens de Strava se almacenan actualmente en campos normales del modelo `Perfil`; si alguien accede a la base de datos, podría leerlos.
 - `DEBUG` tiene valor por defecto `True`; en producción debe estar explícitamente configurado como `False`.
@@ -827,7 +749,7 @@ Prioridad alta:
 
 1. Agregar validación por club en `restablecer_password_corredor`.
 2. Corregir `asignar_grupo` para que el grupo del `POST` salga del queryset filtrado por club.
-3. Agregar validación por club en `historial_carreras_manual` y `historial_lactato_manual`.
+3. Agregar validación por club en `historial_carreras_manual`.
 4. Crear pruebas para evitar accesos cross-club en reset de contraseña, asignación de grupo e historiales.
 
 Prioridad media:
@@ -866,7 +788,7 @@ Antes de modificar código:
 1. Analizar modelos, vistas, rutas y templates relacionados.
 2. Verificar permisos por rol y por club.
 3. Revisar si ya existe helper o lógica reutilizable.
-4. Evaluar impacto en Strava, ranking, cumplimiento y feed.
+4. Evaluar impacto en Strava, cumplimiento y estadísticas.
 5. Confirmar si el cambio requiere migración.
 6. Proponer plan si el cambio es grande.
 7. Implementar cambios pequeños.
