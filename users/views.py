@@ -21,8 +21,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
-from .forms import CrearCorredorForm, EditarCorredorForm, EntrenamientoDiarioForm, EntrenamientoRecursoForm, GrupoForm, RitmoForm, CarreraManualForm, LactatoManualForm
-from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, LactatoManual, Club
+from .forms import CrearCorredorForm, EditarCorredorForm, EntrenamientoDiarioForm, EntrenamientoRecursoForm, GrupoForm, RitmoForm, CarreraManualForm
+from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, Club
 from django.db.models import Count, Max, Q
 import urllib.parse
 import requests
@@ -2715,41 +2715,5 @@ def historial_carreras_manual(request, perfil_id):
     return render(request, "users/historial_carreras_modal.html", {
         "perfil": perfil,
         "carreras_por_distancia": carreras_por_distancia,
-        "form": form,
-    })
-
-
-@login_required
-def historial_lactato_manual(request, perfil_id):
-    if not _is_staffish(request.user):
-        return _forbidden("No tienes permiso para ver el historial de lactato.")
-
-    perfil = get_object_or_404(Perfil, id=perfil_id)
-
-    if request.method == "POST" and request.POST.get("eliminar_id"):
-        registro = LactatoManual.objects.filter(
-            id=request.POST.get("eliminar_id"),
-            perfil=perfil,
-        ).first()
-        if registro:
-            registro.delete()
-            messages.success(request, "Registro de lactato eliminado correctamente.")
-        else:
-            messages.error(request, "No se encontró el registro para eliminar.")
-        return redirect("historial_lactato_manual", perfil_id=perfil.id)
-
-    form = LactatoManualForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        nuevo = form.save(commit=False)
-        nuevo.perfil = perfil
-        nuevo.save()
-        messages.success(request, "Registro de lactato agregado correctamente.")
-        return redirect("historial_lactato_manual", perfil_id=perfil.id)
-
-    registros = LactatoManual.objects.filter(perfil=perfil).order_by("-fecha", "-id")
-
-    return render(request, "users/historial_lactato.html", {
-        "perfil": perfil,
-        "registros": registros,
         "form": form,
     })

@@ -199,7 +199,7 @@ Distancias soportadas:
 
 ### LactatoManual
 
-Historial manual de mediciones de lactato para corredores.
+El modelo conserva las mediciones manuales de lactato existentes hasta la migración definitiva.
 
 ## Roles y Permisos
 
@@ -324,7 +324,6 @@ Permite:
 - Crear, editar y eliminar ritmos.
 - Restablecer contraseña temporal.
 - Ver historial manual de carreras.
-- Ver historial de lactato.
 
 ### Gestión de Grupos
 
@@ -634,7 +633,6 @@ Formularios detectados:
 - `EntrenamientoDiarioForm`
 - `EntrenamientoRecursoForm`
 - `CarreraManualForm`
-- `LactatoManualForm`
 
 Los formularios de corredor filtran grupos por club cuando el usuario no es superuser.
 
@@ -740,7 +738,7 @@ En desarrollo local, el backend por defecto es `django.core.mail.backends.consol
 
 - `restablecer_password_corredor` valida que el usuario sea profesor/admin, pero debe reforzarse para validar también que el corredor pertenezca al mismo club cuando el actor no sea superuser.
 - `asignar_grupo` filtra los grupos visibles por club, pero en el `POST` debe asegurar que el grupo elegido provenga del queryset ya filtrado.
-- `historial_carreras_manual` y `historial_lactato_manual` deben reforzar la validación por club para profesores/admins funcionales.
+- La vista `historial_carreras_manual` debe reforzar la validación por club para profesores/admins funcionales.
 - El Django Admin tiene scoping por club parcial: `GrupoAdmin` y `PerfilAdmin` filtran por club, pero otros modelos sensibles deberían revisarse.
 - Los tokens de Strava se almacenan actualmente en campos normales del modelo `Perfil`; si alguien accede a la base de datos, podría leerlos.
 - `DEBUG` tiene valor por defecto `True`; en producción debe estar explícitamente configurado como `False`.
@@ -755,7 +753,7 @@ Prioridad alta:
 
 1. Agregar validación por club en `restablecer_password_corredor`.
 2. Corregir `asignar_grupo` para que el grupo del `POST` salga del queryset filtrado por club.
-3. Agregar validación por club en `historial_carreras_manual` y `historial_lactato_manual`.
+3. Agregar validación por club en `historial_carreras_manual`.
 4. Crear pruebas para evitar accesos cross-club en reset de contraseña, asignación de grupo e historiales.
 
 Prioridad media:

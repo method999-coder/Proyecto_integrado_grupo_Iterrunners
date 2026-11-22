@@ -24,7 +24,6 @@ urlpatterns = [
     path("gestion/corredores/<int:perfil_id>/ritmos/<int:ritmo_id>/editar/", views.editar_ritmo, name="editar_ritmo"),
     path("gestion/corredores/<int:perfil_id>/ritmos/<int:ritmo_id>/eliminar/", views.eliminar_ritmo, name="eliminar_ritmo"),
     path("gestion/corredores/<int:perfil_id>/historial-carreras/", views.historial_carreras_manual, name="historial_carreras_manual"),
-    path("gestion/corredores/<int:perfil_id>/historial-lactato/", views.historial_lactato_manual, name="historial_lactato_manual"),
     path("gestion/corredores/<int:perfil_id>/asignar-grupo/", views.asignar_grupo, name="asignar_grupo"),
     path("gestion/corredores/<int:perfil_id>/restablecer-password/", views.restablecer_password_corredor, name="restablecer_password_corredor"),
 

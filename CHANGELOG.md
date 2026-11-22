@@ -32,6 +32,14 @@ Pendientes:
 
 ---
 
+### 2026-11-22 - Retiro del historial manual de lactato
+
+Se retiraron el acceso desde Gestión de corredores, la consulta y los formularios de alta y eliminación del historial manual de lactato. El modelo y las mediciones existentes se conservan hasta la migración definitiva. Las zonas de entrenamiento y los ritmos personalizados siguen disponibles.
+
+Para probar localmente, ejecutar manage.py check y la suite con SQLite en memoria y migraciones desactivadas. Desde Gestión de corredores, verificar que el historial de carreras sigue accesible y que la antigua ruta de lactato devuelve 404.
+
+---
+
 ### 2026-11-22 - Retiro del feed de actividades
 
 Se retiraron el acceso al feed, los likes, los comentarios sociales y la publicación automática. Las actividades Strava siguen sincronizándose y se pueden consultar en Actividades.
