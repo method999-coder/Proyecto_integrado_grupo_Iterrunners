@@ -225,7 +225,6 @@ class StravaActividad(models.Model):
     pais = models.CharField(max_length=120, blank=True, null=True)
 
     # Metadatos
-    publicar_en_feed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -357,36 +356,6 @@ class CumplimientoEntrenamiento(models.Model):
         return f"{self.perfil} - {self.fecha} {estado}"
 
 
-
-
-class FeedLike(models.Model):
-    actividad = models.ForeignKey(
-        "StravaActividad",
-        on_delete=models.CASCADE,
-        related_name="feed_likes",
-    )
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name="feed_likes")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        unique_together = ("actividad", "usuario")
-        ordering = ["-created_at"]
-
-
-class FeedComentario(models.Model):
-    actividad = models.ForeignKey(
-        "StravaActividad",
-        on_delete=models.CASCADE,
-        related_name="feed_comentarios",
-    )
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name="feed_comentarios")
-    texto = models.CharField(max_length=300)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["created_at"]
-
-
 # --- Historial manual de carreras ---
 # (Definir SIEMPRE después de todas las importaciones y modelos)
 class CarreraManual(models.Model):
@@ -408,16 +377,3 @@ class CarreraManual(models.Model):
 
     def __str__(self):
         return f"{self.get_distancia_m_display()} - {self.fecha} - {self.tiempo}"
-
-
-class LactatoManual(models.Model):
-    perfil = models.ForeignKey("Perfil", on_delete=models.CASCADE, related_name="lactatos_manuales")
-    fecha = models.DateField()
-    umbral_lactato = models.DecimalField(max_digits=4, decimal_places=1)
-    ritmo = models.CharField(max_length=20, help_text="Formato mm:ss /km")
-
-    class Meta:
-        ordering = ["-fecha", "-id"]
-
-    def __str__(self):
-        return f"Lactato {self.perfil} - {self.fecha}"

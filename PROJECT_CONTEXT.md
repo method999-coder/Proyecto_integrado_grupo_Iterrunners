@@ -197,10 +197,6 @@ Distancias soportadas:
 - 21K
 - 42K
 
-### LactatoManual
-
-El modelo conserva las mediciones manuales de lactato existentes hasta la migración definitiva.
-
 ## Roles y Permisos
 
 ### Administrador

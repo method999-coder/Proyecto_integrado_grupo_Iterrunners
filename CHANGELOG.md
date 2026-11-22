@@ -32,6 +32,14 @@ Pendientes:
 
 ---
 
+### 2026-11-22 - Limpieza de modelos de feed y lactato
+
+Se retiraron del ORM los modelos de likes, comentarios sociales y lactato manual, junto con el campo que marcaba actividades Strava para publicación. Los cambios de esquema de ranking, feed y lactato quedan pendientes de la migración definitiva.
+
+Para verificar localmente, ejecutar python manage.py check y python manage.py makemigrations --dry-run --verbosity 2.
+
+---
+
 ### 2026-11-22 - Retiro del historial manual de lactato
 
 Se retiraron el acceso desde Gestión de corredores, la consulta y los formularios de alta y eliminación del historial manual de lactato. El modelo y las mediciones existentes se conservan hasta la migración definitiva. Las zonas de entrenamiento y los ritmos personalizados siguen disponibles.
