@@ -22,7 +22,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 from .forms import CrearCorredorForm, EditarCorredorForm, EntrenamientoDiarioForm, EntrenamientoRecursoForm, GrupoForm, RitmoForm, CarreraManualForm, LactatoManualForm
-from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, FeedComentario, FeedLike, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, LactatoManual, Club, RankingEntry, RankingAudit
+from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, FeedComentario, FeedLike, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, LactatoManual, Club
 from django.db.models import Count, Max, Q
 import urllib.parse
 import requests
@@ -359,8 +359,8 @@ def _auto_mark_cumplimiento_from_strava(perfil, lookback_days=3, min_distance_m=
                 continue
 
             if cumplimiento and not cumplimiento.realizada:
-                # Respetar pendientes con comentario/ranking cargado manualmente.
-                if (cumplimiento.comentario or "").strip() or cumplimiento.publicar_ranking or cumplimiento.ranking_distancia:
+                # Respetar pendientes con comentarios cargados manualmente.
+                if (cumplimiento.comentario or "").strip():
                     continue
                 cumplimiento.realizada = True
                 cumplimiento.realizada_at = timezone.now()
@@ -587,106 +587,6 @@ def home(request):
     })
 
 
-@login_required
-def ranking(request):
-    distancias = [
-        (3, "3000m"),
-        (5, "5K"),
-        (10, "10K"),
-        (21, "21K"),
-        (42, "42K"),
-    ]
-    distancia_valores = {valor for valor, _ in distancias}
-    distancias_por_valor = {valor: texto for valor, texto in distancias}
-    distancia_raw = (request.GET.get("distancia") or "10").strip()
-    distancia_actual = int(distancia_raw) if distancia_raw.isdigit() and int(distancia_raw) in distancia_valores else 10
-    distancia_actual_label = distancias_por_valor.get(distancia_actual, "10K")
-
-    es_corredor = _is_in_group(request.user, "Corredor")
-    perfil = (
-        Perfil.objects
-        .filter(usuario=request.user)
-        .select_related("grupo")
-        .first()
-    )
-    scope_label = "Global"
-    def _format_seconds(value):
-        if value is None:
-            return None
-        total = int(value)
-        hours = total // 3600
-        minutes = (total % 3600) // 60
-        seconds = total % 60
-        if hours:
-            return f"{hours}:{minutes:02d}:{seconds:02d}"
-        return f"{minutes}:{seconds:02d}"
-
-    def _format_pace(value_seconds, distance_km):
-        if not value_seconds or not distance_km:
-            return "-"
-        pace_seconds = int(round(value_seconds / float(distance_km)))
-        minutes = pace_seconds // 60
-        seconds = pace_seconds % 60
-        return f"{minutes}:{seconds:02d} /km"
-
-    ranking_entries = (
-        RankingEntry.objects
-        .filter(ranking_distancia=distancia_actual)
-        .select_related("perfil", "perfil__usuario", "cumplimiento")
-    )
-
-    filas_ranking = []
-    for entry in ranking_entries:
-        perfil_entry = entry.perfil
-        if not perfil_entry:
-            continue
-
-        nombre = (perfil_entry.nombre or "").strip()
-        apellido = (perfil_entry.apellido or "").strip()
-        username = perfil_entry.usuario.username if perfil_entry.usuario else ""
-        nombre_mostrar = f"{nombre} {apellido}".strip() or username
-
-        time_seconds = entry.time_seconds
-        if time_seconds is None and entry.cumplimiento and entry.cumplimiento.audit_meta:
-            audit_meta = entry.cumplimiento.audit_meta if isinstance(entry.cumplimiento.audit_meta, dict) else None
-            if audit_meta:
-                stored_time = audit_meta.get("time_seconds")
-                if isinstance(stored_time, (int, float)):
-                    time_seconds = int(stored_time)
-
-        if time_seconds is None:
-            continue
-
-        if entry.cumplimiento and entry.cumplimiento.fecha:
-            ultima_marca = entry.cumplimiento.fecha
-        else:
-            ultima_marca = entry.created_at.date()
-
-        filas_ranking.append({
-            "perfil_id": perfil_entry.id,
-            "nombre": nombre_mostrar,
-            "marca_tiempo": _format_seconds(time_seconds),
-            "marca_distancia_km": f"{distancia_actual:.0f}",
-            "marca_ritmo": _format_pace(time_seconds, distancia_actual),
-            "ultima_marca": ultima_marca,
-            "_orden_time": time_seconds,
-        })
-
-    filas_ranking.sort(key=lambda row: (row["_orden_time"], row["ultima_marca"]))
-    for posicion, fila in enumerate(filas_ranking, start=1):
-        fila["posicion"] = posicion
-        fila.pop("_orden_time", None)
-
-    return render(request, "users/ranking.html", {
-        "perfil": perfil,
-        "distancias": distancias,
-        "distancia_actual": distancia_actual,
-        "distancia_actual_label": distancia_actual_label,
-        "filas_ranking": filas_ranking,
-        "scope_label": scope_label,
-        "es_corredor": es_corredor,
-    })
-
 
 @login_required
 def feed(request):
@@ -779,56 +679,6 @@ def feed_comentar(request, actividad_id):
     return redirect(f"{reverse('feed')}#post-{actividad_id}")
 
 
-def _sugerencia_ranking_desde_strava(perfil, fecha_obj):
-    if not perfil:
-        return None
-
-    if perfil.strava_athlete_id:
-        perfiles_mismo_athlete = Perfil.objects.filter(
-            strava_athlete_id=perfil.strava_athlete_id
-        ).values_list("id", flat=True)
-        actividades_qs = StravaActividad.objects.filter(perfil_id__in=perfiles_mismo_athlete)
-    else:
-        actividades_qs = StravaActividad.objects.filter(perfil=perfil)
-
-    actividad = (
-        actividades_qs
-        .filter(start_date__date=fecha_obj)
-        .order_by("-distance_m", "-start_date")
-        .first()
-    )
-
-    if not actividad or not actividad.distance_m:
-        return None
-
-    distancia_km = float(actividad.distance_m) / 1000.0
-    opciones = [
-        (3, "3000m (Control)", 3.0, 0.35),
-        (5, "5K", 5.0, 0.60),
-        (10, "10K", 10.0, 1.00),
-        (21, "21K", 21.0, 1.50),
-        (42, "42K", 42.0, 3.00),
-    ]
-
-    mejor_opcion = None
-    for valor, etiqueta, referencia_km, tolerancia_km in opciones:
-        diferencia = abs(distancia_km - referencia_km)
-        if diferencia <= tolerancia_km:
-            if mejor_opcion is None or diferencia < mejor_opcion["diferencia"]:
-                mejor_opcion = {
-                    "valor": valor,
-                    "etiqueta": etiqueta,
-                    "diferencia": diferencia,
-                }
-
-    return {
-        "actividad_nombre": actividad.name or "Actividad",
-        "actividad_km": round(distancia_km, 2),
-        "sugerencia_valor": mejor_opcion["valor"] if mejor_opcion else None,
-        "sugerencia_etiqueta": mejor_opcion["etiqueta"] if mejor_opcion else None,
-    }
-
-
 def _parse_tiempo_a_segundos(value):
     if not value:
         return None
@@ -848,127 +698,10 @@ def _parse_tiempo_a_segundos(value):
     return None
 
 
-def _obtener_tiempo_segundos_para_ranking(cumplimiento, fallback_time_s=None):
-    if cumplimiento and cumplimiento.audit_meta:
-        audit_meta = cumplimiento.audit_meta if isinstance(cumplimiento.audit_meta, dict) else None
-        if audit_meta:
-            stored_time = audit_meta.get("time_seconds")
-            if isinstance(stored_time, (int, float)):
-                return int(stored_time)
-
-    if fallback_time_s is not None:
-        try:
-            return int(fallback_time_s)
-        except Exception:
-            return None
-
-    return None
-
-
-def _registrar_ranking_manual(*, perfil, cumplimiento, entrenamiento, ranking_distancia, tiempo_segundos, actor):
-    snapshot = {
-        "cumplimiento_id": cumplimiento.id if cumplimiento else None,
-        "entrenamiento_id": entrenamiento.id if entrenamiento else None,
-        "perfil_id": perfil.id if perfil else None,
-        "ranking_distancia": ranking_distancia,
-        "time_seconds": tiempo_segundos,
-    }
-
-    with transaction.atomic():
-        existing = (
-            RankingEntry.objects
-            .select_for_update()
-            .filter(perfil=perfil, ranking_distancia=ranking_distancia)
-            .first()
-        )
-
-        accepted = False
-        replaced = False
-        previous_time = existing.time_seconds if existing else None
-
-        if existing is None:
-            RankingEntry.objects.create(
-                perfil=perfil,
-                ranking_distancia=ranking_distancia,
-                cumplimiento=cumplimiento,
-                time_seconds=tiempo_segundos,
-            )
-            accepted = True
-        else:
-            current_time = existing.time_seconds
-            if current_time is None or (tiempo_segundos is not None and tiempo_segundos < current_time):
-                existing.cumplimiento = cumplimiento
-                existing.time_seconds = tiempo_segundos
-                existing.save(update_fields=["cumplimiento", "time_seconds"])
-                accepted = True
-                replaced = True
-
-        RankingAudit.objects.create(
-            perfil=perfil,
-            club=getattr(perfil, "club", None),
-            cumplimiento=cumplimiento,
-            entrenamiento=entrenamiento,
-            actor=actor,
-            action="subir_al_ranking",
-            origin="manual",
-            suggested_ranking=ranking_distancia,
-            accepted=accepted,
-            published_ranking=accepted,
-            snapshot={
-                **snapshot,
-                "accepted": accepted,
-                "replaced": replaced,
-                "previous_time_seconds": previous_time,
-            },
-            comment="Subida manual al ranking",
-        )
-
-        return accepted, replaced, previous_time
-
-
-def _sugerir_ranking_desde_distancia(distance_m):
-    if not distance_m:
-        return None
-
-    distancia_km = float(distance_m) / 1000.0
-    opciones = [
-        (3, 3.0, 0.35),
-        (5, 5.0, 0.60),
-        (10, 10.0, 1.00),
-        (21, 21.0, 1.50),
-        (42, 42.0, 3.00),
-    ]
-
-    mejor_opcion = None
-    for valor, referencia_km, tolerancia_km in opciones:
-        diferencia = abs(distancia_km - referencia_km)
-        if diferencia <= tolerancia_km:
-            if mejor_opcion is None or diferencia < mejor_opcion["diferencia"]:
-                mejor_opcion = {
-                    "valor": valor,
-                    "etiqueta": f"{valor}K" if valor != 3 else "3000m",
-                    "diferencia": diferencia,
-                }
-
-    return {
-        "actividad_km": round(distancia_km, 2),
-        "sugerencia_valor": mejor_opcion["valor"] if mejor_opcion else None,
-        "sugerencia_etiqueta": mejor_opcion["etiqueta"] if mejor_opcion else None,
-    }
-
 
 @login_required
 @transaction.atomic
 def registro_actividad(request):
-    ranking_distancias = [
-        (3, "3000m (Control)"),
-        (5, "5K"),
-        (10, "10K"),
-        (21, "21K"),
-        (42, "42K"),
-    ]
-    ranking_distancias_validas = {str(valor) for valor, _ in ranking_distancias}
-
     es_corredor = _is_in_group(request.user, "Corredor")
     es_admin = request.user.is_superuser or _is_in_group(request.user, "Admin")
     puede_registrar = es_corredor or es_admin
@@ -1010,11 +743,6 @@ def registro_actividad(request):
             .first()
         )
 
-    strava_sugerencia = _sugerencia_ranking_desde_strava(perfil, fecha_obj)
-    ranking_distancia_sugerida = None
-    if strava_sugerencia and strava_sugerencia.get("sugerencia_valor"):
-        if not (cumplimiento_registro and cumplimiento_registro.ranking_distancia):
-            ranking_distancia_sugerida = strava_sugerencia.get("sugerencia_valor")
 
     current_month = fecha_obj.replace(day=1)
     last_day_month = (current_month.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
@@ -1058,17 +786,12 @@ def registro_actividad(request):
     next_month_ref = (current_month.replace(day=28) + timedelta(days=4)).replace(day=1)
 
     if request.method != "POST":
-        ranking_habilitado = bool(entreno_registro and entreno_registro.tipo in {"carrera", "control"})
         return render(request, "users/registro_actividad.html", {
             "perfil": perfil,
             "fecha_hoy": fecha_hoy,
             "fecha_consulta": fecha_obj,
             "entreno_registro": entreno_registro,
             "cumplimiento_registro": cumplimiento_registro,
-            "ranking_habilitado": ranking_habilitado,
-            "ranking_distancias": ranking_distancias,
-            "strava_sugerencia": strava_sugerencia,
-            "ranking_distancia_sugerida": ranking_distancia_sugerida,
             "month_current": current_month,
             "month_prev_ref": prev_month_ref,
             "month_next_ref": next_month_ref,
@@ -1089,28 +812,6 @@ def registro_actividad(request):
 
     realizada = request.POST.get("realizada") == "on"
     comentario = (request.POST.get("comentario") or "").strip()
-    ranking_habilitado = entreno_hoy.tipo in {"carrera", "control"}
-    publicar_ranking = request.POST.get("publicar_ranking") == "on"
-    ranking_distancia_raw = (request.POST.get("ranking_distancia") or "").strip()
-
-    if publicar_ranking and not ranking_distancia_raw:
-        sugerencia_post = _sugerencia_ranking_desde_strava(perfil, fecha_obj)
-        if sugerencia_post and sugerencia_post.get("sugerencia_valor"):
-            ranking_distancia_raw = str(sugerencia_post.get("sugerencia_valor"))
-
-    if not ranking_habilitado:
-        publicar_ranking = False
-        ranking_distancia_raw = ""
-
-    if not realizada:
-        publicar_ranking = False
-        ranking_distancia_raw = ""
-
-    if publicar_ranking and ranking_distancia_raw not in ranking_distancias_validas:
-        messages.error(request, "Debes seleccionar una distancia válida para publicar en ranking.")
-        return redirect(f"{reverse('registro_actividad')}?fecha={fecha_obj.strftime('%Y-%m-%d')}")
-
-    ranking_distancia = int(ranking_distancia_raw) if publicar_ranking and ranking_distancia_raw else None
 
     cumplimiento, created = CumplimientoEntrenamiento.objects.get_or_create(
         perfil=perfil,
@@ -1126,18 +827,14 @@ def registro_actividad(request):
             messages.info(request, "Sin cambios: queda como pendiente.")
         return redirect(f"{reverse('registro_actividad')}?fecha={fecha_obj.strftime('%Y-%m-%d')}")
 
-    cumplimiento.realizada = realizada
+        cumplimiento.realizada = realizada
     cumplimiento.comentario = comentario
     cumplimiento.realizada_at = timezone.now() if cumplimiento.realizada else None
-    cumplimiento.publicar_ranking = publicar_ranking
-    cumplimiento.ranking_distancia = ranking_distancia
     cumplimiento.save(update_fields=[
         "fecha",
         "realizada",
         "realizada_at",
         "comentario",
-        "publicar_ranking",
-        "ranking_distancia",
         "updated_at",
     ])
 
@@ -2940,49 +2637,6 @@ def strava_activities_runner_detail(request, perfil_id):
     )
 
 
-@login_required
-def strava_publish_ranking(request, actividad_id):
-    if request.method != "POST":
-        return _forbidden("Método no permitido.")
-
-    perfil = (
-        Perfil.objects
-        .filter(usuario=request.user)
-        .select_related("grupo")
-        .first()
-    )
-    if not perfil:
-        return _forbidden("No tienes perfil asociado.")
-
-    actividad = get_object_or_404(StravaActividad, id=actividad_id, perfil=perfil)
-    sugerencia = _sugerir_ranking_desde_distancia(actividad.distance_m)
-    if not sugerencia or not sugerencia.get("sugerencia_valor"):
-        messages.info(request, "Esta actividad no está dentro del rango para ranking.")
-        return redirect("actividad")
-
-    ranking_distancia = int(sugerencia["sugerencia_valor"])
-    tiempo_segundos = int(actividad.moving_time_s or 0)
-    if tiempo_segundos <= 0:
-        messages.error(request, "No se pudo publicar porque la actividad no tiene tiempo válido.")
-        return redirect("actividad")
-
-    accepted, replaced, previous_time = _registrar_ranking_manual(
-        perfil=perfil,
-        cumplimiento=None,
-        entrenamiento=None,
-        ranking_distancia=ranking_distancia,
-        tiempo_segundos=tiempo_segundos,
-        actor=request.user,
-    )
-
-    if accepted and replaced:
-        messages.success(request, f"Ranking actualizado: esta actividad mejora la marca anterior ({previous_time}s).")
-    elif accepted:
-        messages.success(request, "Actividad subida al ranking correctamente.")
-    else:
-        messages.info(request, "No se publicó: la actividad no mejora el ranking actual.")
-
-    return redirect("actividad")
 
 @login_required
 def actividad(request):
