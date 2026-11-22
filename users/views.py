@@ -827,7 +827,7 @@ def registro_actividad(request):
             messages.info(request, "Sin cambios: queda como pendiente.")
         return redirect(f"{reverse('registro_actividad')}?fecha={fecha_obj.strftime('%Y-%m-%d')}")
 
-        cumplimiento.realizada = realizada
+    cumplimiento.realizada = realizada
     cumplimiento.comentario = comentario
     cumplimiento.realizada_at = timezone.now() if cumplimiento.realizada else None
     cumplimiento.save(update_fields=[

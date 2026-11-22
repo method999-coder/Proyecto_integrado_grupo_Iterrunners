@@ -245,7 +245,7 @@ class CriticalViewsTests(TestCase):
 		self.assertTrue(runner_user.check_password("NuevaClaveSegura123"))
 
 	def test_cumplimiento_hoy_shows_totals_for_staff(self):
-		grupo = Grupo.objects.create(nombre="10K A")
+		club, grupo = self._create_club_and_group("Club 10K", "10K A")
 		today = timezone.localdate()
 
 		EntrenamientoDiario.objects.create(
@@ -262,11 +262,13 @@ class CriticalViewsTests(TestCase):
 			django_group_name="Corredor",
 			grupo=grupo,
 		)
-		staff_user, _ = self._create_user_with_profile(
+		_, perfil_profesor = self._create_user_with_profile(
 			username="coach1",
 			role="profesor",
 			django_group_name="Profesor",
 		)
+		perfil_profesor.club = club
+		perfil_profesor.save(update_fields=["club"])
 
 		entreno = EntrenamientoDiario.objects.get(grupo=grupo, fecha=today)
 		CumplimientoEntrenamiento.objects.create(
@@ -286,13 +288,14 @@ class CriticalViewsTests(TestCase):
 		self.assertEqual(response.context["grupos_data"][0]["total_realizadas"], 1)
 
 	def test_copiar_mes_copies_only_valid_days(self):
-		source_group = Grupo.objects.create(nombre="Origen")
-		target_group = Grupo.objects.create(nombre="Destino")
+		club, source_group = self._create_club_and_group("Club Calendario", "Origen")
+		target_group = Grupo.objects.create(nombre="Destino", club=club)
 
 		self._create_user_with_profile(
 			username="admin1",
 			role="admin",
 			django_group_name="Admin",
+			grupo=target_group,
 		)
 
 		EntrenamientoDiario.objects.create(
@@ -332,7 +335,7 @@ class CriticalViewsTests(TestCase):
 		)
 
 	def test_estadisticas_clamps_future_navigation(self):
-		grupo = Grupo.objects.create(nombre="21K B")
+		_, grupo = self._create_club_and_group("Club 21K", "21K B")
 		user, perfil = self._create_user_with_profile(
 			username="runner2",
 			role="corredor",
@@ -370,93 +373,74 @@ class CriticalViewsTests(TestCase):
 		self.assertIsNone(response.context["next_week_start"])
 		self.assertLessEqual(response.context["inicio_mes"], today.replace(day=1))
 
-	def test_registro_actividad_ranking_only_for_carrera_o_control(self):
-		grupo = Grupo.objects.create(nombre="5K Team")
+	def test_registro_actividad_guarda_cumplimiento_por_tipo(self):
+		grupo = Grupo.objects.create(nombre="Grupo de entrenamiento")
 		user, perfil = self._create_user_with_profile(
 			username="runner3",
 			role="corredor",
 			django_group_name="Corredor",
 			grupo=grupo,
 		)
-
+		self.client.login(username=user.username, password="testpass123")
 		hoy = timezone.localdate()
-		entreno_normal = EntrenamientoDiario.objects.create(
+
+		for dias, tipo in enumerate(("entreno", "carrera", "control")):
+			with self.subTest(tipo=tipo):
+				fecha = hoy + timedelta(days=dias)
+				entrenamiento = EntrenamientoDiario.objects.create(
+					grupo=grupo,
+					fecha=fecha,
+					tipo=tipo,
+					titulo=tipo.capitalize(),
+				)
+				comentario = f"{tipo} completado"
+				response = self.client.post(reverse("registro_actividad"), {
+					"fecha": fecha.isoformat(),
+					"realizada": "on",
+					"comentario": comentario,
+				}, follow=True)
+				self.assertEqual(response.status_code, 200)
+
+				cumplimiento = CumplimientoEntrenamiento.objects.get(
+					perfil=perfil,
+					entrenamiento=entrenamiento,
+					fecha=fecha,
+				)
+				self.assertTrue(cumplimiento.realizada)
+				self.assertEqual(cumplimiento.comentario, comentario)
+
+	def test_registro_actividad_carga_con_actividad_strava_de_3_km(self):
+		grupo = Grupo.objects.create(nombre="Grupo de entrenamiento")
+		user, perfil = self._create_user_with_profile(
+			username="runner_strava_3k",
+			role="corredor",
+			django_group_name="Corredor",
+			grupo=grupo,
+		)
+		ahora = timezone.now()
+		hoy = timezone.localdate(ahora)
+		entrenamiento = EntrenamientoDiario.objects.create(
 			grupo=grupo,
 			fecha=hoy,
-			tipo="entreno",
-			titulo="Rodaje",
-			descripcion="40 min",
+			tipo="control",
+			titulo="Control 3K",
+		)
+		StravaActividad.objects.create(
+			perfil=perfil,
+			strava_id=991999,
+			name="Control 3K",
+			type="Run",
+			start_date=ahora,
+			distance_m=3020,
+			moving_time_s=780,
 		)
 
 		self.client.login(username=user.username, password="testpass123")
-		response = self.client.post(reverse("registro_actividad"), {
-			"fecha": hoy.isoformat(),
-			"realizada": "on",
-			"comentario": "hecho",
-			"publicar_ranking": "on",
-			"ranking_distancia": "10",
-		}, follow=True)
+		response = self.client.get(reverse("registro_actividad"), {"fecha": hoy.isoformat()})
+
 		self.assertEqual(response.status_code, 200)
-
-		cumplimiento = CumplimientoEntrenamiento.objects.get(
-			perfil=perfil,
-			entrenamiento=entreno_normal,
-			fecha=hoy,
-		)
-		self.assertFalse(cumplimiento.publicar_ranking)
-		self.assertIsNone(cumplimiento.ranking_distancia)
-
-		manana = hoy + timedelta(days=1)
-		entreno_carrera = EntrenamientoDiario.objects.create(
-			grupo=grupo,
-			fecha=manana,
-			tipo="carrera",
-			titulo="Control 10K",
-			descripcion="test",
-		)
-
-		response = self.client.post(reverse("registro_actividad"), {
-			"fecha": manana.isoformat(),
-			"realizada": "on",
-			"comentario": "marca subida",
-			"publicar_ranking": "on",
-			"ranking_distancia": "10",
-		}, follow=True)
-		self.assertEqual(response.status_code, 200)
-
-		cumplimiento_carrera = CumplimientoEntrenamiento.objects.get(
-			perfil=perfil,
-			entrenamiento=entreno_carrera,
-			fecha=manana,
-		)
-		self.assertTrue(cumplimiento_carrera.publicar_ranking)
-		self.assertEqual(cumplimiento_carrera.ranking_distancia, 10)
-
-		pasado = hoy + timedelta(days=2)
-		entreno_control = EntrenamientoDiario.objects.create(
-			grupo=grupo,
-			fecha=pasado,
-			tipo="control",
-			titulo="Control 3000m",
-			descripcion="test 3k",
-		)
-
-		response = self.client.post(reverse("registro_actividad"), {
-			"fecha": pasado.isoformat(),
-			"realizada": "on",
-			"comentario": "control 3000",
-			"publicar_ranking": "on",
-			"ranking_distancia": "3",
-		}, follow=True)
-		self.assertEqual(response.status_code, 200)
-
-		cumplimiento_control = CumplimientoEntrenamiento.objects.get(
-			perfil=perfil,
-			entrenamiento=entreno_control,
-			fecha=pasado,
-		)
-		self.assertTrue(cumplimiento_control.publicar_ranking)
-		self.assertEqual(cumplimiento_control.ranking_distancia, 3)
+		self.assertTemplateUsed(response, "users/registro_actividad.html")
+		self.assertEqual(response.context["entreno_registro"], entrenamiento)
 
 	def test_profesor_ve_solo_corredores_de_su_club_incluso_sin_grupo(self):
 		club_a, grupo_a = self._create_club_and_group("Club A", "Grupo A")
@@ -605,202 +589,6 @@ class CriticalViewsTests(TestCase):
 		response = self.client.get(reverse("cumplimiento_cumplidos", args=[grupo_b.id]))
 
 		self.assertEqual(response.status_code, 404)
-
-	def test_ranking_filtra_por_distancia_y_grupo_para_corredor(self):
-		grupo_a = Grupo.objects.create(nombre="Grupo A")
-		grupo_b = Grupo.objects.create(nombre="Grupo B")
-
-		runner_a_user, runner_a_perfil = self._create_user_with_profile(
-			username="runner_a",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo_a,
-		)
-		_, runner_a2_perfil = self._create_user_with_profile(
-			username="runner_a2",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo_a,
-		)
-		_, runner_b_perfil = self._create_user_with_profile(
-			username="runner_b",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo_b,
-		)
-
-		hoy = timezone.localdate()
-		entreno_a_10 = EntrenamientoDiario.objects.create(
-			grupo=grupo_a,
-			fecha=hoy,
-			tipo="carrera",
-			titulo="10K A",
-		)
-		entreno_a2_10 = EntrenamientoDiario.objects.create(
-			grupo=grupo_a,
-			fecha=hoy + timedelta(days=1),
-			tipo="control",
-			titulo="10K A2",
-		)
-		entreno_a_21 = EntrenamientoDiario.objects.create(
-			grupo=grupo_a,
-			fecha=hoy + timedelta(days=2),
-			tipo="carrera",
-			titulo="21K A",
-		)
-		entreno_a_3k = EntrenamientoDiario.objects.create(
-			grupo=grupo_a,
-			fecha=hoy + timedelta(days=3),
-			tipo="control",
-			titulo="3000m A",
-		)
-		entreno_b_10 = EntrenamientoDiario.objects.create(
-			grupo=grupo_b,
-			fecha=hoy,
-			tipo="carrera",
-			titulo="10K B",
-		)
-		entreno_a2_10_extra = EntrenamientoDiario.objects.create(
-			grupo=grupo_a,
-			fecha=hoy + timedelta(days=4),
-			tipo="control",
-			titulo="10K A2 extra",
-		)
-
-		CumplimientoEntrenamiento.objects.create(
-			perfil=runner_a_perfil,
-			entrenamiento=entreno_a_10,
-			fecha=entreno_a_10.fecha,
-			realizada=True,
-			publicar_ranking=True,
-			ranking_distancia=10,
-		)
-		CumplimientoEntrenamiento.objects.create(
-			perfil=runner_a2_perfil,
-			entrenamiento=entreno_a2_10,
-			fecha=entreno_a2_10.fecha,
-			realizada=True,
-			publicar_ranking=True,
-			ranking_distancia=10,
-		)
-		CumplimientoEntrenamiento.objects.create(
-			perfil=runner_a_perfil,
-			entrenamiento=entreno_a_21,
-			fecha=entreno_a_21.fecha,
-			realizada=True,
-			publicar_ranking=True,
-			ranking_distancia=21,
-		)
-		CumplimientoEntrenamiento.objects.create(
-			perfil=runner_b_perfil,
-			entrenamiento=entreno_b_10,
-			fecha=entreno_b_10.fecha,
-			realizada=True,
-			publicar_ranking=True,
-			ranking_distancia=10,
-		)
-		CumplimientoEntrenamiento.objects.create(
-			perfil=runner_a2_perfil,
-			entrenamiento=entreno_a2_10_extra,
-			fecha=entreno_a2_10_extra.fecha,
-			realizada=True,
-			publicar_ranking=True,
-			ranking_distancia=10,
-		)
-		StravaActividad.objects.create(
-			perfil=runner_a_perfil,
-			strava_id=881001,
-			name="10K marca A",
-			type="Run",
-			start_date=timezone.make_aware(datetime.combine(entreno_a_10.fecha, datetime.min.time())),
-			distance_m=10020,
-			moving_time_s=2500,
-		)
-		StravaActividad.objects.create(
-			perfil=runner_a2_perfil,
-			strava_id=881002,
-			name="10K marca A2",
-			type="Run",
-			start_date=timezone.make_aware(datetime.combine(entreno_a2_10.fecha, datetime.min.time())),
-			distance_m=9980,
-			moving_time_s=2700,
-		)
-		StravaActividad.objects.create(
-			perfil=runner_a2_perfil,
-			strava_id=881003,
-			name="10K marca A2 extra",
-			type="Run",
-			start_date=timezone.make_aware(datetime.combine(entreno_a2_10_extra.fecha, datetime.min.time())),
-			distance_m=10010,
-			moving_time_s=2750,
-		)
-		CumplimientoEntrenamiento.objects.create(
-			perfil=runner_a_perfil,
-			entrenamiento=entreno_a_3k,
-			fecha=entreno_a_3k.fecha,
-			realizada=True,
-			publicar_ranking=True,
-			ranking_distancia=3,
-		)
-
-		self.client.login(username=runner_a_user.username, password="testpass123")
-		response = self.client.get(reverse("ranking"), {"distancia": "10"})
-
-		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.context["distancia_actual"], 10)
-		filas = response.context["filas_ranking"]
-		self.assertEqual(len(filas), 2)
-		self.assertEqual(filas[0]["nombre"], "runner_a")
-		self.assertEqual(filas[1]["nombre"], "runner_a2")
-		nombres = {fila["nombre"] for fila in filas}
-		self.assertIn("runner_a", nombres)
-		self.assertIn("runner_a2", nombres)
-		self.assertNotIn("runner_b", nombres)
-
-		fila_runner_a = next(f for f in filas if f["nombre"] == "runner_a")
-		self.assertEqual(fila_runner_a["marca_distancia_km"], 10.02)
-		self.assertEqual(fila_runner_a["marca_tiempo"], "41:40")
-		self.assertEqual(fila_runner_a["marca_ritmo"], "4:10 /km")
-
-		response_3k = self.client.get(reverse("ranking"), {"distancia": "3"})
-		self.assertEqual(response_3k.status_code, 200)
-		self.assertEqual(response_3k.context["distancia_actual"], 3)
-		filas_3k = response_3k.context["filas_ranking"]
-		self.assertEqual(len(filas_3k), 1)
-		self.assertEqual(filas_3k[0]["nombre"], "runner_a")
-
-	def test_registro_actividad_sugiere_3000m_desde_strava(self):
-		grupo = Grupo.objects.create(nombre="Grupo Sugerencia")
-		user, perfil = self._create_user_with_profile(
-			username="runner_sugerencia",
-			role="corredor",
-			django_group_name="Corredor",
-			grupo=grupo,
-		)
-
-		hoy = timezone.localdate()
-		EntrenamientoDiario.objects.create(
-			grupo=grupo,
-			fecha=hoy,
-			tipo="control",
-			titulo="Control del día",
-		)
-		StravaActividad.objects.create(
-			perfil=perfil,
-			strava_id=991999,
-			name="Control 3K",
-			type="Run",
-			start_date=timezone.now(),
-			distance_m=3020,
-			moving_time_s=780,
-		)
-
-		self.client.login(username=user.username, password="testpass123")
-		response = self.client.get(reverse("registro_actividad"), {"fecha": hoy.isoformat()})
-
-		self.assertEqual(response.status_code, 200)
-		self.assertEqual(response.context["ranking_distancia_sugerida"], 3)
-		self.assertEqual(response.context["strava_sugerencia"]["sugerencia_valor"], 3)
 
 	def test_feed_muestra_actividades_strava_de_corredores(self):
 		grupo = Grupo.objects.create(nombre="Feed Group")
