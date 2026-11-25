@@ -58,3 +58,23 @@ Además, contribuye al cumplimiento de los requerimientos de seguridad definidos
 - Reducción del riesgo de accesos no autorizados.
 - Mejor trazabilidad de las acciones administrativas.
 - Mayor confianza en la plataforma.
+
+
+## Estructura de la base de datos
+
+El sistema utiliza PostgreSQL y el ORM de Django para gestionar
+la persistencia de datos.
+
+Los modelos principales del sistema son:
+
+- Club
+- Grupo
+- Perfil
+- Ritmo
+- EntrenamientoDiario
+- EntrenamientoRecurso
+- StravaActividad
+- CumplimientoEntrenamiento
+- CarreraManual
+
+Estos modelos se encuentran definidos en users/models.py.
