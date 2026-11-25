@@ -78,3 +78,23 @@ Los modelos principales del sistema son:
 - CarreraManual
 
 Estos modelos se encuentran definidos en users/models.py.
+
+### Diagrama entidad-relación
+
+El siguiente diagrama representa las relaciones principales
+entre los modelos actuales de Iterrunners.
+
+```mermaid
+erDiagram
+    USER ||--o| PERFIL : tiene
+    USER ||--o{ RITMO : registra
+    CLUB o|--o{ GRUPO : contiene
+    CLUB o|--o{ PERFIL : agrupa
+    GRUPO o|--o{ PERFIL : integra
+    GRUPO ||--o{ ENTRENAMIENTO_DIARIO : planifica
+    ENTRENAMIENTO_DIARIO ||--o{ ENTRENAMIENTO_RECURSO : contiene
+    PERFIL ||--o{ STRAVA_ACTIVIDAD : registra
+    PERFIL ||--o{ CUMPLIMIENTO_ENTRENAMIENTO : registra
+    ENTRENAMIENTO_DIARIO o|--o{ CUMPLIMIENTO_ENTRENAMIENTO : relaciona
+    PERFIL ||--o{ CARRERA_MANUAL : registra
+```
