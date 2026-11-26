@@ -22,6 +22,7 @@ class Club(models.Model):
 class Grupo(models.Model):
     nombre = models.CharField(max_length=50)
     descripcion = models.CharField(max_length=200, blank=True)
+    # Un club puede tener varios grupos. Si se elimina el club, el grupo conserva su registro sin asociación.
     club = models.ForeignKey(Club, on_delete=models.SET_NULL, null=True, blank=True, related_name="grupos")
 
     def __str__(self):
@@ -38,6 +39,8 @@ class Perfil(models.Model):
         ("profesor", "Profesor"),
         ("admin", "Administrador"),
     ]
+    
+     # Relación uno a uno con el usuario; al eliminar la cuenta se elimina su perfil.
 
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
     nombre = models.CharField(max_length=100)
