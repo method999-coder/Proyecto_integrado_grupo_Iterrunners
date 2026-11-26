@@ -38,6 +38,8 @@ class Perfil(models.Model):
         ("profesor", "Profesor"),
         ("admin", "Administrador"),
     ]
+    
+     # Relación uno a uno con el usuario; al eliminar la cuenta se elimina su perfil.
 
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
     nombre = models.CharField(max_length=100)
