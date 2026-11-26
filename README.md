@@ -58,3 +58,43 @@ Además, contribuye al cumplimiento de los requerimientos de seguridad definidos
 - Reducción del riesgo de accesos no autorizados.
 - Mejor trazabilidad de las acciones administrativas.
 - Mayor confianza en la plataforma.
+
+
+## Estructura de la base de datos
+
+El sistema utiliza PostgreSQL y el ORM de Django para gestionar
+la persistencia de datos.
+
+Los modelos principales del sistema son:
+
+- Club
+- Grupo
+- Perfil
+- Ritmo
+- EntrenamientoDiario
+- EntrenamientoRecurso
+- StravaActividad
+- CumplimientoEntrenamiento
+- CarreraManual
+
+Estos modelos se encuentran definidos en users/models.py.
+
+### Diagrama entidad-relación
+
+El siguiente diagrama representa las relaciones principales
+entre los modelos actuales de Iterrunners.
+
+```mermaid
+erDiagram
+    USER ||--o| PERFIL : tiene
+    USER ||--o{ RITMO : registra
+    CLUB o|--o{ GRUPO : contiene
+    CLUB o|--o{ PERFIL : agrupa
+    GRUPO o|--o{ PERFIL : integra
+    GRUPO ||--o{ ENTRENAMIENTO_DIARIO : planifica
+    ENTRENAMIENTO_DIARIO ||--o{ ENTRENAMIENTO_RECURSO : contiene
+    PERFIL ||--o{ STRAVA_ACTIVIDAD : registra
+    PERFIL ||--o{ CUMPLIMIENTO_ENTRENAMIENTO : registra
+    ENTRENAMIENTO_DIARIO o|--o{ CUMPLIMIENTO_ENTRENAMIENTO : relaciona
+    PERFIL ||--o{ CARRERA_MANUAL : registra
+```
