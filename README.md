@@ -20,3 +20,4 @@ Esta propuesta favorece la **separación de responsabilidades**, la **organizaci
 La arquitectura por capas permite identificar con mayor claridad las responsabilidades técnicas de cada parte del sistema y facilita la implementación de pruebas y futuras mejoras.
 
 Esta propuesta representa una posible reorganización de la arquitectura actual de Iterrunners.
+.
