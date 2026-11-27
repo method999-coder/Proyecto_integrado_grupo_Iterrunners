@@ -7,7 +7,16 @@ from django.utils import timezone
 
 
 class Club(models.Model):
-    id = models.AutoField(primary_key=True)
+    """Club de running que agrupa a sus grupos de entrenamiento y a sus integrantes.
+
+    Relaciones:
+    - ``grupos``: grupos de entrenamiento que pertenecen al club.
+    - ``perfiles``: corredores, profesores y administradores asociados al club.
+
+    Los clubes se listan ordenados alfabéticamente por nombre.
+    """
+
+    id =models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=100)
     descripcion = models.CharField(max_length=300, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -20,7 +29,14 @@ class Club(models.Model):
 
 
 class Grupo(models.Model):
-    nombre = models.CharField(max_length=50)
+    """Grupo de entrenamiento dentro de un club.
+
+    Un profesor planifica los entrenamientos diarios para el grupo, y los
+    corredores lo integran mediante el campo ``Perfil.grupo``. El club es
+    opcional: si el club se elimina, el grupo se conserva sin club asociado.
+    """
+
+    nombre =models.CharField(max_length=50)
     descripcion = models.CharField(max_length=200, blank=True)
     # Un club puede tener varios grupos. Si se elimina el club, el grupo conserva su registro sin asociación.
     club = models.ForeignKey(Club, on_delete=models.SET_NULL, null=True, blank=True, related_name="grupos")
@@ -29,11 +45,30 @@ class Grupo(models.Model):
         return self.nombre
 
     def save(self, *args, **kwargs):
+        """Guarda el grupo y alinea el club de sus integrantes.
+
+        Después de guardar, todos los perfiles del grupo pasan a tener el
+        mismo club que el grupo, para que grupo y club no queden inconsistentes.
+        """
         super().save(*args, **kwargs)
         Perfil.objects.filter(grupo=self).exclude(club=self.club).update(club=self.club)
 
 
 class Perfil(models.Model):
+    """Datos de Iter Runners asociados a cada usuario de Django.
+
+    Cada ``User`` tiene un único perfil, que se crea automáticamente al crear
+    el usuario (ver ``users/signals.py``). El perfil define:
+
+    - ``rol``: Corredor, Profesor o Administrador.
+    - ``club`` y ``grupo``: a qué club y grupo de entrenamiento pertenece.
+      Si tiene grupo, el club se toma siempre del grupo.
+    - Datos deportivos: meta actual, mejor marca y modalidad de ritmo.
+    - ``must_change_password``: obliga a cambiar la contraseña inicial.
+    - ``last_seen``: última actividad, actualizada por el middleware.
+    - Campos ``strava_*``: credenciales de la conexión con Strava.
+    """
+
     ROL_CHOICES = [
         ("corredor", "Corredor"),
         ("profesor", "Profesor"),
@@ -64,6 +99,12 @@ class Perfil(models.Model):
 
     @staticmethod
     def role_from_user(user):
+        """Deduce el rol a partir de los grupos de permisos de Django.
+
+        Devuelve ``"admin"`` si el usuario es superusuario o pertenece al grupo
+        "Admin", ``"profesor"`` si pertenece al grupo "Profesor" y
+        ``"corredor"`` en cualquier otro caso (o si no hay usuario).
+        """
         if not user:
             return "corredor"
         if user.is_superuser or user.groups.filter(name="Admin").exists():
@@ -73,6 +114,11 @@ class Perfil(models.Model):
         return "corredor"
 
     def save(self, *args, **kwargs):
+        """Guarda el perfil completando el club y el rol cuando corresponde.
+
+        - Si el perfil tiene grupo con club, copia ese club al perfil.
+        - Si no tiene rol, lo calcula con ``role_from_user``.
+        """
         if self.grupo_id and self.grupo and self.grupo.club_id:
             self.club = self.grupo.club
         if not self.rol:
