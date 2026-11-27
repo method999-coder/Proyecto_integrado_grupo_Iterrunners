@@ -12,3 +12,4 @@ DATABASES = {
 
 SECURE_SSL_REDIRECT = False
 STRAVA_ENABLED = False
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
