@@ -14,7 +14,6 @@ import django
 django.setup()
 
 from users.models import Perfil, StravaActividad, EntrenamientoDiario, CumplimientoEntrenamiento
-from users.views import _sugerencia_ranking_desde_strava
 from django.db import transaction
 # INICIO - Verificar el destino antes de consultar datos históricos
 from django.conf import settings
@@ -25,7 +24,6 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Reconstruir cumplimientos a partir de Strava (dry-run por defecto).')
 parser.add_argument('--apply', action='store_true', help='Aplicar cambios (crear los CumplimientoEntrenamiento).')
-parser.add_argument('--publish', action='store_true', help='Marcar los cumplimientos reconstruidos con publicar_ranking=True.')
 parser.add_argument('--max', type=int, default=1000, help='Máximo número de cumplimientos a procesar (para safety).')
 parser.add_argument('--fallback-carrera', action='store_true', help='Si no existe EntrenamientoDiario para la fecha, crear CarreraManual como fallback.')
 args = parser.parse_args()
@@ -79,8 +77,6 @@ for perfil in perfil_qs:
         if entreno:
             exists = CumplimientoEntrenamiento.objects.filter(perfil=perfil, entrenamiento=entreno, fecha=fecha).exists()
             if not exists:
-                suger = _sugerencia_ranking_desde_strava(perfil, fecha)
-                ranking_dist = suger.get('sugerencia_valor') if suger else None
                 proposed.append({
                     'perfil_id': perfil.id,
                     'perfil_nombre': perfil.nombre,
@@ -89,7 +85,6 @@ for perfil in perfil_qs:
                     'actividad_id': actividad.id,
                     'actividad_dist_m': actividad.distance_m,
                     'actividad_time_s': actividad.moving_time_s,
-                    'ranking_distancia_sugerida': ranking_dist,
                 })
                 count += 1
                 if count >= args.max:
@@ -134,9 +129,7 @@ if args.apply and proposed:
                     fecha=entreno.fecha,
                     realizada=True,
                     realizada_at=p.get('actividad_start') or None,
-                    comentario='Reconstruido desde Strava (automático)',
-                    publicar_ranking=bool(args.publish),
-                    ranking_distancia=p.get('ranking_distancia_sugerida')
+                    comentario='Reconstruido desde Strava (automático)'
                 )
                 c.save()
                 created_count += 1
@@ -166,4 +159,4 @@ if args.apply and proposed:
                     created_count += 1
     print('Created', created_count)
 else:
-    print('Dry run complete. Use --apply to create records, --publish to mark publishing, --fallback-carrera to create CarreraManual when no entreno.')
+    print('Dry run complete. Use --apply to create records, --fallback-carrera to create CarreraManual when no entreno.')

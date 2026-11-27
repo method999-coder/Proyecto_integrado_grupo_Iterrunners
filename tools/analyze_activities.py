@@ -15,22 +15,9 @@ from users.models import CumplimientoEntrenamiento, EntrenamientoDiario, Perfil,
 out = {}
 out['counts'] = {
     'cumplimientos_total': CumplimientoEntrenamiento.objects.count(),
-    'cumplimientos_publicados': CumplimientoEntrenamiento.objects.filter(publicar_ranking=True).count(),
     'entrenamientos_total': EntrenamientoDiario.objects.count(),
     'grupos_total': Grupo.objects.count(),
 }
-
-# Top perfiles with published rankings
-top = list(CumplimientoEntrenamiento.objects.filter(publicar_ranking=True).values('perfil_id').annotate(count=Count('id')).order_by('-count')[:30])
-profiles_top = []
-from users.models import Perfil
-for row in top:
-    try:
-        p = Perfil.objects.get(id=row['perfil_id'])
-        profiles_top.append({'perfil_id': p.id, 'nombre': p.nombre, 'apellido': p.apellido, 'count': row['count']})
-    except Perfil.DoesNotExist:
-        profiles_top.append({'perfil_id': row['perfil_id'], 'missing_perfil': True, 'count': row['count']})
-out['top_perfiles_publicados'] = profiles_top
 
 # Perfiles sin grupo pero con actividades Strava
 perfiles_no_grupo = []

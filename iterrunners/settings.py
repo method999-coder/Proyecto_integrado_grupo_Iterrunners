@@ -133,20 +133,24 @@ WSGI_APPLICATION = 'iterrunners.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# INICIO - Base de datos exclusiva de Iterrunners-Dev
-# Esta copia usa SQLite incluso si el proceso hereda DATABASE_URL.
-LOCAL_DATABASE_PATH = BASE_DIR / "db.sqlite3"
-if LOCAL_DATABASE_PATH.resolve() != LOCAL_DATABASE_PATH:
-    raise ValueError("db.sqlite3 debe estar en la raíz de Iterrunners-Dev.")
+# INICIO - Base de datos PostgreSQL académica (Supabase)
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": LOCAL_DATABASE_PATH,
-        "TEST": {"NAME": ":memory:"},
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+        "OPTIONS": {
+            "sslmode": "require",
+        },
     }
 }
-# FIN - Base de datos exclusiva de Iterrunners-Dev
+
+# FIN - Base de datos PostgreSQL académica (Supabase)
+
 
 
 # Password validation

@@ -4,7 +4,7 @@ from django.db import transaction
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
-from .models import CumplimientoEntrenamiento, EntrenamientoDiario, Grupo, Perfil, Ritmo, Club, RankingEntry, RankingAudit
+from .models import CumplimientoEntrenamiento, EntrenamientoDiario, Grupo, Perfil, Ritmo, Club
 
 
 class NeverLoggedInFilter(admin.SimpleListFilter):
@@ -113,48 +113,3 @@ class CumplimientoEntrenamientoAdmin(admin.ModelAdmin):
     ordering = ("-fecha", "-updated_at")
 
 
-# Admin action: delete selected RankingEntry rows but record an audit for each
-def delete_ranking_entries_with_audit(modeladmin, request, queryset):
-    if not request.user.is_staff:
-        messages.error(request, "No permission.")
-        return
-    with transaction.atomic():
-        for entry in queryset:
-            RankingAudit.objects.create(
-                perfil=entry.perfil,
-                club=getattr(entry.perfil, "club", None),
-                action="manual_delete",
-                origin="admin",
-                snapshot={"ranking_distancia": entry.ranking_distancia, "time_seconds": entry.time_seconds},
-                accepted=True,
-                comment=f"Deleted by {request.user.username}"
-            )
-        count = queryset.count()
-        queryset.delete()
-    messages.success(request, f"Deleted {count} ranking entries and created audits.")
-
-delete_ranking_entries_with_audit.short_description = "Delete selected ranking entries (create audit entry)"
-
-
-@admin.register(RankingEntry)
-class RankingEntryAdmin(admin.ModelAdmin):
-    verbose_name_plural = "Ranking"
-    list_display = ("perfil", "ranking_distancia", "time_seconds")
-    list_filter = ("ranking_distancia", "perfil__club")
-    search_fields = ("perfil__nombre", "perfil__usuario__username")
-    ordering = ("ranking_distancia", "time_seconds")
-    actions = [delete_ranking_entries_with_audit]
-
-    def get_actions(self, request):
-        actions = super().get_actions(request)
-        if not request.user.is_superuser and not request.user.has_perm("users.delete_rankingentry"):
-            actions.pop("delete_ranking_entries_with_audit", None)
-        return actions
-
-
-@admin.register(RankingAudit)
-class RankingAuditAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "perfil", "action", "origin", "suggested_ranking", "accepted", "published_ranking")
-    list_filter = ("action", "origin", "accepted", "published_ranking", "suggested_ranking")
-    search_fields = ("perfil__nombre", "perfil__usuario__username", "comment")
-    ordering = ("-created_at",)

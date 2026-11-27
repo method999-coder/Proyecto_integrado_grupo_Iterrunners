@@ -6,9 +6,10 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    # INICIO - Usar la configuración local aunque el proceso herede otro módulo
-    os.environ['DJANGO_SETTINGS_MODULE'] = 'iterrunners.settings'
-    # FIN - Usar la configuración local aunque el proceso herede otro módulo
+    default_settings = "iterrunners.settings"
+    if sys.argv[1:2] == ["test"]:
+        default_settings = "iterrunners.settings_test"
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", default_settings)
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
