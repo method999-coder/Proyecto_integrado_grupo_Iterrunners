@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import PasswordResetConfirmView
-from django.db import transaction
+from django.db import connection, transaction
 from django.forms import inlineformset_factory
 from django.http import HttpResponseForbidden
 from django.http import HttpResponse
@@ -19,7 +19,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.crypto import get_random_string
+from django.utils.crypto import constant_time_compare, get_random_string
 
 from .forms import CrearCorredorForm, EditarCorredorForm, EntrenamientoDiarioForm, EntrenamientoRecursoForm, GrupoForm, RitmoForm, CarreraManualForm
 from .models import CumplimientoEntrenamiento, EntrenamientoDiario, EntrenamientoRecurso, Grupo, Perfil, Ritmo, StravaActividad, CarreraManual, Club
@@ -156,50 +156,66 @@ def _grupo_belongs_to_club(grupo, club):
     return getattr(grupo, "club_id", None) == club.id
 
 
+STRAVA_TOKEN_FIELDS = ("strava_access_token", "strava_refresh_token", "strava_expires_at")
+
+
+def _strava_request_tokens(**grant):
+    try:
+        response = requests.post(
+            "https://www.strava.com/oauth/token",
+            data={
+                "client_id": settings.STRAVA_CLIENT_ID,
+                "client_secret": settings.STRAVA_CLIENT_SECRET,
+                **grant,
+            },
+            timeout=15,
+        )
+        if response.status_code != 200:
+            logger.warning("Strava rechazó el intercambio de tokens (%s).", response.status_code)
+            return None
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        logger.warning("Strava no devolvió una respuesta válida de tokens.")
+        return None
+
+    if isinstance(data, dict):
+        access = data.get("access_token")
+        refresh = data.get("refresh_token")
+        expires = data.get("expires_at")
+        if (isinstance(access, str) and 0 < len(access) <= 255
+                and isinstance(refresh, str) and 0 < len(refresh) <= 255
+                and type(expires) is int and 0 < expires < 2**63):
+            return data
+    logger.warning("Strava devolvió credenciales incompletas.")
+    return None
+
+
+def _strava_store_tokens(perfil, data):
+    perfil.strava_access_token = data["access_token"]
+    perfil.strava_refresh_token = data["refresh_token"]
+    perfil.strava_expires_at = data["expires_at"]
+
+
+@transaction.atomic
 def _strava_refresh_token(perfil):
-    """
-    Refresca el access_token usando refresh_token si existe.
-    Guarda nuevos tokens en el Perfil y retorna True si pudo refrescar.
-    """
-
-    # INICIO - Bloqueo de Strava en desarrollo
     if not settings.STRAVA_ENABLED:
-        logger.info("Strava desactivado en Iterrunners-Dev")
-        return False
-    # FIN - Bloqueo de Strava en desarrollo
-
-    if not perfil.strava_refresh_token:
         return False
 
-    resp = requests.post(
-        "https://www.strava.com/oauth/token",
-        data={
-            "client_id": settings.STRAVA_CLIENT_ID,
-            "client_secret": settings.STRAVA_CLIENT_SECRET,
-            "grant_type": "refresh_token",
-            "refresh_token": perfil.strava_refresh_token,
-        },
-        timeout=15,
-    )
-
-    data = resp.json()
-
-    # Si Strava responde error, no refrescamos
-    if resp.status_code != 200 or "access_token" not in data:
-        logger.warning("Strava refresh token falló", extra={"status_code": resp.status_code})
+    # Un token de renovación puede rotar. Serializar los intentos para este perfil.
+    current = Perfil.objects.select_for_update().get(pk=perfil.pk)
+    if not current.strava_refresh_token or current.strava_athlete_id != perfil.strava_athlete_id:
         return False
-
-    perfil.strava_access_token = data.get("access_token")
-    perfil.strava_refresh_token = data.get("refresh_token")
-    perfil.strava_expires_at = data.get("expires_at")
-
-    athlete = data.get("athlete") or {}
-    if athlete.get("id"):
-        perfil.strava_athlete_id = athlete.get("id")
-
-    perfil.save()
-    logger.info("Strava refresh token exitoso")
-    return True
+    if all(getattr(current, field) == getattr(perfil, field) for field in STRAVA_TOKEN_FIELDS):
+        data = _strava_request_tokens(
+            grant_type="refresh_token", refresh_token=current.strava_refresh_token,
+        )
+        if data is None:
+            return False
+        _strava_store_tokens(current, data)
+        current.save(update_fields=STRAVA_TOKEN_FIELDS)
+    for field in STRAVA_TOKEN_FIELDS:
+        setattr(perfil, field, getattr(current, field))
+    return bool(perfil.strava_access_token)
 
 
 def _strava_sync_latest_activities(perfil, per_page=30):
@@ -216,56 +232,70 @@ def _strava_sync_latest_activities(perfil, per_page=30):
         return False
 
     now_ts = int(timezone.now().timestamp())
-    if perfil.strava_expires_at and perfil.strava_expires_at <= now_ts:
+    refreshed = bool(perfil.strava_expires_at and perfil.strava_expires_at <= now_ts)
+    if refreshed:
         if not _strava_refresh_token(perfil):
             return False
 
-    headers = {"Authorization": f"Bearer {perfil.strava_access_token}"}
-    try:
-        resp = requests.get(
+    def get_activities():
+        return requests.get(
             "https://www.strava.com/api/v3/athlete/activities",
-            headers=headers,
+            headers={"Authorization": f"Bearer {perfil.strava_access_token}"},
             params={"per_page": per_page, "page": 1},
             timeout=15,
         )
-    except Exception:
-        logger.exception("Error consultando actividades en Strava")
+
+    try:
+        resp = get_activities()
+        if resp.status_code == 401 and not refreshed and _strava_refresh_token(perfil):
+            resp = get_activities()
+        if resp.status_code != 200:
+            logger.warning("Strava rechazó la consulta de actividades (%s).", resp.status_code)
+            return False
+        actividades = resp.json()
+    except (requests.RequestException, ValueError):
+        logger.warning("Strava no devolvió una respuesta válida de actividades.")
         return False
 
-    if resp.status_code != 200:
-        logger.warning("Strava activities fallo", extra={"status_code": resp.status_code})
+    if not isinstance(actividades, list):
         return False
 
-    actividades = resp.json() or []
     with transaction.atomic():
+        current = Perfil.objects.select_for_update().get(pk=perfil.pk)
+        if (current.strava_access_token != perfil.strava_access_token
+                or current.strava_athlete_id != perfil.strava_athlete_id):
+            return False
         for a in actividades:
+            if not isinstance(a, dict):
+                continue
             strava_id = a.get("id")
-            if not strava_id:
+            if type(strava_id) is not int or not 0 < strava_id < 2**63:
                 continue
 
-            start_date = parse_datetime(a.get("start_date"))
-
-            StravaActividad.objects.update_or_create(
-                strava_id=strava_id,
-                defaults={
-                    "perfil": perfil,
-                    "name": a.get("name") or "",
-                    "type": a.get("type") or "",
-                    "sport_type": a.get("sport_type") or "",
-                    "start_date": start_date,
-                    "distance_m": a.get("distance"),
-                    "moving_time_s": a.get("moving_time"),
-                    "elapsed_time_s": a.get("elapsed_time"),
-                    "total_elevation_gain_m": a.get("total_elevation_gain"),
-                    "average_heartrate": a.get("average_heartrate"),
-                    "max_heartrate": a.get("max_heartrate"),
-                    "start_lat": None,
-                    "start_lng": None,
-                    "comuna": None,
-                    "region": None,
-                    "pais": None,
-                },
+            raw_date = a.get("start_date")
+            try:
+                start_date = parse_datetime(raw_date) if isinstance(raw_date, str) else None
+            except ValueError:
+                start_date = None
+            datos = {
+                "name": str(a.get("name") or "")[:255],
+                "type": str(a.get("type") or "")[:50],
+                "sport_type": str(a.get("sport_type") or "")[:50],
+                "start_date": start_date,
+                "distance_m": a.get("distance"),
+                "moving_time_s": a.get("moving_time"),
+                "elapsed_time_s": a.get("elapsed_time"),
+                "total_elevation_gain_m": a.get("total_elevation_gain"),
+                "average_heartrate": a.get("average_heartrate"),
+                "max_heartrate": a.get("max_heartrate"),
+            }
+            actividad, created = StravaActividad.objects.get_or_create(
+                strava_id=strava_id, defaults={"perfil": perfil, **datos},
             )
+            if not created and actividad.perfil_id == perfil.pk:
+                StravaActividad.objects.filter(pk=actividad.pk).update(
+                    **datos, updated_at=timezone.now(),
+                )
 
     return True
 
@@ -1243,19 +1273,10 @@ def _build_cumplidos_filas(cumplimientos, fecha):
 
         comentario = (item.comentario or "").strip()
 
-        if perfil.strava_athlete_id:
-            perfiles_relacionados = list(
-                Perfil.objects
-                .filter(strava_athlete_id=perfil.strava_athlete_id)
-                .values_list("id", flat=True)
-            )
-        else:
-            perfiles_relacionados = [perfil.id]
-
         actividades_dia_qs = (
             StravaActividad.objects
             .filter(
-                perfil_id__in=perfiles_relacionados,
+                perfil=perfil,
                 start_date__date=fecha,
                 distance_m__isnull=False,
                 moving_time_s__isnull=False,
@@ -2240,16 +2261,8 @@ def estadisticas(request):
 
     # -------------------------
     # VOLUMEN (StravaActividad) desde BD local
-    # Si existen varios perfiles con el mismo athlete_id, agregamos en conjunto
-    # para evitar vacíos de datos por asociación de perfil.
     # -------------------------
-    if perfil.strava_athlete_id:
-        perfiles_mismo_athlete = Perfil.objects.filter(
-            strava_athlete_id=perfil.strava_athlete_id
-        ).values_list("id", flat=True)
-        volumen_base_qs = StravaActividad.objects.filter(perfil_id__in=perfiles_mismo_athlete)
-    else:
-        volumen_base_qs = StravaActividad.objects.filter(perfil=perfil)
+    volumen_base_qs = StravaActividad.objects.filter(perfil=perfil)
 
     qs_semana = volumen_base_qs.filter(
         start_date__date__range=(inicio_semana, fin_semana)
@@ -2340,7 +2353,7 @@ def strava_login(request):
         "client_id": settings.STRAVA_CLIENT_ID,
         "response_type": "code",
         "redirect_uri": settings.STRAVA_REDIRECT_URI,
-        "approval_prompt": "auto",
+        "approval_prompt": "force",
         "scope": "read,activity:read_all",
         "state": oauth_state,
     }
@@ -2350,43 +2363,38 @@ def strava_login(request):
 
 
 @login_required
+@transaction.atomic
 def strava_disconnect(request):
     if request.method != "POST":
         return _forbidden("Método no permitido.")
-
-    # INICIO - Evitar revocaciones y cambios locales con Strava desactivado
     if not settings.STRAVA_ENABLED:
         messages.warning(request, "La integración con Strava está desactivada.")
         return redirect("home")
-    # FIN - Evitar revocaciones y cambios locales con Strava desactivado
 
-    perfil = Perfil.objects.filter(usuario=request.user).first()
+    perfil = Perfil.objects.select_for_update().filter(usuario=request.user).first()
     if not perfil:
         messages.error(request, "No se encontró perfil de usuario.")
         return redirect("home")
 
-    access_token = perfil.strava_access_token
-    if access_token:
+    token = perfil.strava_refresh_token or perfil.strava_access_token
+    if token:
         try:
-            requests.post(
-                "https://www.strava.com/oauth/deauthorize",
-                headers={"Authorization": f"Bearer {access_token}"},
+            response = requests.post(
+                "https://www.strava.com/oauth/revoke",
+                auth=(settings.STRAVA_CLIENT_ID, settings.STRAVA_CLIENT_SECRET),
+                data={"token": token},
                 timeout=15,
             )
-        except Exception:
-            logger.exception("Error al revocar token en Strava")
+            response.raise_for_status()
+        except requests.RequestException:
+            messages.error(request, "Strava no confirmó la desconexión. Inténtalo de nuevo.")
+            return redirect("home")
 
     perfil.strava_access_token = None
     perfil.strava_refresh_token = None
     perfil.strava_expires_at = None
-    perfil.strava_athlete_id = None
-    perfil.save(update_fields=[
-        "strava_access_token",
-        "strava_refresh_token",
-        "strava_expires_at",
-        "strava_athlete_id",
-    ])
-
+    # Mantener la identidad asociada a las actividades que siguen guardadas.
+    perfil.save(update_fields=STRAVA_TOKEN_FIELDS)
     messages.success(request, "Strava desconectado correctamente.")
     return redirect("home")
 
@@ -2436,52 +2444,54 @@ def strava_delete_data(request):
 
 @login_required
 def strava_callback(request):
-
-    # INICIO - Bloqueo de Strava en desarrollo
     if not settings.STRAVA_ENABLED:
-        logger.info("Callback de Strava bloqueado en desarrollo")
         return redirect("home")
-    # FIN - Bloqueo de Strava en desarrollo
 
     code = request.GET.get("code")
-    error = request.GET.get("error")
-    state = request.GET.get("state")
+    state = request.GET.get("state", "")
     expected_state = request.session.pop("strava_oauth_state", None)
-
-    if not expected_state or state != expected_state:
-        logger.warning("Callback Strava con state inválido o ausente")
+    if not expected_state or not constant_time_compare(state, expected_state):
+        messages.error(request, "La autorización de Strava no corresponde a esta sesión. Iníciala de nuevo.")
+        return redirect("home")
+    if request.GET.get("error") or not code:
+        messages.warning(request, "La autorización de Strava no se completó.")
         return redirect("home")
 
-    if error or not code:
+    scopes = {scope.strip() for scope in request.GET.get("scope", "").split(",")}
+    if not scopes.intersection({"activity:read", "activity:read_all"}):
+        messages.warning(request, "Autoriza la lectura de actividades en Strava para vincular tu cuenta.")
+        return redirect("home")
+    if not Perfil.objects.filter(usuario=request.user).exists():
+        messages.error(request, "Tu usuario necesita un perfil de Iter Runners para conectar Strava.")
         return redirect("home")
 
-    resp = requests.post(
-        "https://www.strava.com/oauth/token",
-        data={
-            "client_id": settings.STRAVA_CLIENT_ID,
-            "client_secret": settings.STRAVA_CLIENT_SECRET,
-            "code": code,
-            "grant_type": "authorization_code",
-        },
-        timeout=15,
-    )
-
-    data = resp.json()
-    if resp.status_code != 200 or "access_token" not in data:
-        logger.warning("Intercambio de código por token en Strava falló", extra={"status_code": resp.status_code})
+    data = _strava_request_tokens(grant_type="authorization_code", code=code)
+    athlete = data.get("athlete") if data else None
+    athlete_id = athlete.get("id") if isinstance(athlete, dict) else None
+    if type(athlete_id) is not int or not 0 < athlete_id < 2**63:
+        messages.error(request, "No se pudo verificar la cuenta de Strava. Inténtalo de nuevo.")
         return redirect("home")
 
-    # ✅ Guardar en Perfil
-    perfil = Perfil.objects.get(usuario=request.user)
-    perfil.strava_access_token = data.get("access_token")
-    perfil.strava_refresh_token = data.get("refresh_token")
-    perfil.strava_expires_at = data.get("expires_at")
-
-    athlete = data.get("athlete") or {}
-    perfil.strava_athlete_id = athlete.get("id")
-
-    perfil.save()
-
+    with transaction.atomic():
+        # Dos perfiles pueden intentar vincular al mismo atleta al mismo tiempo.
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_advisory_xact_lock(%s)", [athlete_id])
+        perfil = Perfil.objects.select_for_update().filter(usuario=request.user).first()
+        if perfil is None:
+            messages.error(request, "No se encontró tu perfil de Iter Runners.")
+            return redirect("home")
+        if Perfil.objects.filter(strava_athlete_id=athlete_id).exclude(pk=perfil.pk).exists():
+            messages.error(request, "Esta cuenta de Strava está asociada a otro perfil de Iter Runners.")
+            return redirect("home")
+        if (perfil.strava_athlete_id not in (None, athlete_id)
+                and StravaActividad.objects.filter(perfil=perfil).exists()):
+            messages.error(request, "Vincula la cuenta de Strava asociada a tus actividades guardadas.")
+            return redirect("home")
+        _strava_store_tokens(perfil, data)
+        perfil.strava_athlete_id = athlete_id
+        perfil.save(update_fields=(*STRAVA_TOKEN_FIELDS, "strava_athlete_id"))
+    messages.success(request, "Strava conectado correctamente.")
     return redirect("home")
 
 
@@ -2563,68 +2573,11 @@ def actividad(request):
     if not perfil or not perfil.strava_access_token:
         return redirect("strava_login")
 
-    # 1) Refrescar token si expiró
-    now_ts = int(timezone.now().timestamp())
-    if perfil.strava_expires_at and perfil.strava_expires_at <= now_ts:
-        ok = _strava_refresh_token(perfil)
-        if not ok:
-            return redirect("strava_login")
+    if _strava_sync_latest_activities(perfil):
+        _auto_mark_cumplimiento_from_strava(perfil, lookback_days=3)
+    else:
+        messages.warning(request, "No se pudo actualizar desde Strava. Se muestran las actividades guardadas.")
 
-    # 2) Pedir a Strava
-    headers = {"Authorization": f"Bearer {perfil.strava_access_token}"}
-    resp = requests.get(
-        "https://www.strava.com/api/v3/athlete/activities",
-        headers=headers,
-        params={"per_page": 30, "page": 1},
-        timeout=15,
-    )
-
-    if resp.status_code != 200:
-        # si Strava falla, al menos mostramos lo que tengamos guardado
-        actividades_db = StravaActividad.objects.filter(perfil=perfil)[:30]
-        return render(request, "users/actividad.html", {
-            "perfil": perfil,
-            "actividades": actividades_db,
-            "nombre_completo": f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
-        })
-
-    actividades = resp.json()  # lista de dicts
-
-    # 3) Guardar/Actualizar en BD PRIMERO (rápido, sin geocoding)
-    with transaction.atomic():
-        for a in actividades:
-            strava_id = a.get("id")
-            if not strava_id:
-                continue
-
-            # Fechas (Strava manda ISO con Z)
-            start_date = parse_datetime(a.get("start_date"))  # UTC
-
-            StravaActividad.objects.update_or_create(
-                strava_id=strava_id,
-                defaults={
-                    "perfil": perfil,
-                    "name": a.get("name") or "",
-                    "type": a.get("type") or "",
-                    "sport_type": a.get("sport_type") or "",
-                    "start_date": start_date,
-                    "distance_m": a.get("distance"),
-                    "moving_time_s": a.get("moving_time"),
-                    "elapsed_time_s": a.get("elapsed_time"),
-                    "total_elevation_gain_m": a.get("total_elevation_gain"),
-                    "average_heartrate": a.get("average_heartrate"),
-                    "max_heartrate": a.get("max_heartrate"),
-                    "start_lat": None,
-                    "start_lng": None,
-                    "comuna": None,
-                    "region": None,
-                    "pais": None,
-                }
-            )
-
-    _auto_mark_cumplimiento_from_strava(perfil, lookback_days=3)
-
-    # 5) Leer desde BD (ya limpio) y mostrar
     actividades_qs = StravaActividad.objects.filter(perfil=perfil).order_by("-start_date")
 
     # Para atletas en modalidad Trail, priorizamos mostrar actividades trail.

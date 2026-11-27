@@ -1,5 +1,17 @@
 # CHANGELOG - Iter Runners
 
+### 2026-11-27 - Correo de recuperación mediante la API de Brevo
+
+Se añadió un backend de correo transaccional que se activa por entorno. El flujo conserva los enlaces y la respuesta genérica de recuperación de Django. Las pruebas simulan la API y comprueban el enlace y el manejo de errores.
+
+Para probar localmente, ejecuta `python manage.py test --settings=iterrunners.settings_test` y sigue la sección de Brevo del README para la prueba de entrega.
+
+### 2026-11-27 - Integración de Strava en el entorno académico
+
+El callback OAuth se configura por entorno y el ejemplo local apunta a `localhost:8766`. Se validan la sesión, el permiso de lectura y los datos de autorización antes de vincular. Se guardan los tokens renovados, se reutiliza la importación de actividades sin transferir registros entre perfiles y se conservan las actividades al desconectar. Si Strava falla durante la consulta, se muestran las actividades guardadas del corredor.
+
+Para probar, ejecuta `python manage.py test --settings=iterrunners.settings_test` y sigue la sección de Strava del README para una autorización real con la app académica.
+
 ## Formato de entradas
 
 ### YYYY-MM-DD - Nombre del cambio
