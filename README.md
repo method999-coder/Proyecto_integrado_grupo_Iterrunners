@@ -6,6 +6,34 @@ Ejecuta `python manage.py test` desde la raíz del proyecto. Django usa SQLite e
 
 Los demás comandos siguen usando la configuración habitual de PostgreSQL. Si defines `DJANGO_SETTINGS_MODULE` explícitamente, `manage.py` respeta ese valor también para las pruebas.
 
+## Strava en la copia académica
+
+1. En el `.env` local, usa los datos del Supabase académico en `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT`. Define `STRAVA_ENABLED=True`, `STRAVA_CLIENT_ID` y `STRAVA_CLIENT_SECRET` de la app API académica, y `STRAVA_REDIRECT_URI=http://localhost:8766/strava/callback/`. Las variables ya definidas en la terminal tienen prioridad sobre el archivo. El `.env` se mantiene fuera de Git.
+2. Arranca Django desde la raíz del proyecto en una terminal de PowerShell y abre `http://localhost:8766/`. Usa `localhost` durante todo el flujo para conservar la sesión.
+
+   ```powershell
+   & .\.venv\Scripts\python.exe manage.py runserver localhost:8766 --settings=iterrunners.settings --noreload
+   ```
+
+3. Entra con un perfil de corredor académico. Pulsa **Conectar Strava**, inicia sesión con una cuenta habilitada en la app académica y concede permiso de lectura de actividades. Al volver a Inicio, abre **Actividad** para consultar la importación. Una app API de Strava en modo de un atleta solo admite a la cuenta que la registró.
+4. Para probar la desvinculación, usa **Desconectar Strava** en el menú del perfil. Si Strava confirma la revocación, se limpian los tokens locales y las actividades guardadas se conservan. Si la revocación falla, puedes reintentar.
+
+Para un despliegue académico en Render, configura las mismas variables con los recursos académicos y un callback HTTPS como `https://<servicio-academico>.onrender.com/strava/callback/`. Registra el dominio del servicio en la app API de Strava y configura `DEBUG=False`, una `SECRET_KEY` propia, `ALLOWED_HOSTS` y `CSRF_TRUSTED_ORIGINS` en Render. El script `render-build.sh` actual bloquea ese build de forma intencional y el despliegue se prepara por separado. Usa datos ficticios para las demostraciones donde un profesor consulta actividades de otro corredor.
+
+## Recuperación de contraseña con Brevo
+
+La aplicación usa la vista y el enlace de recuperación de Django. Para enviar correos reales, configura un remitente verificado en la cuenta académica de Brevo y define estas variables en el `.env` local o en el servicio académico de Render:
+
+```dotenv
+BREVO_EMAIL_ENABLED=True
+BREVO_API_KEY=<clave-api-de-brevo>
+DEFAULT_FROM_EMAIL=Iter Runners <remitente-verificado@ejemplo.cl>
+```
+
+Usa una clave de API de Brevo y mantenla fuera de Git. Reinicia Django, entra a **¿Olvidaste tu contraseña?** y solicita un enlace con el correo de una cuenta académica activa. En local, abre el correo en el mismo equipo que ejecuta Django y usa el mismo host y puerto al solicitar el enlace. En Render, los enlaces usan el dominio HTTPS del servicio académico.
+
+Con el envío desactivado, Django muestra el correo en la consola local. Las pruebas usan correos en memoria y simulan el envío a Brevo.
+
 ## Propuesta de Arquitectura - Cata (DEV)
 
 ### Arquitectura modular para Iterrunners

@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -209,13 +210,18 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 
-# INICIO - Correo de desarrollo sin SMTP
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = os.getenv(
-    "DEFAULT_FROM_EMAIL",
-    "Iter Runners <no-reply@iter-runners.local>",
+# El envío real se habilita en el entorno académico con su propia clave de Brevo.
+BREVO_EMAIL_ENABLED = _env_bool("BREVO_EMAIL_ENABLED", False)
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
+EMAIL_BACKEND = (
+    "users.email_backend.BrevoEmailBackend"
+    if BREVO_EMAIL_ENABLED else "django.core.mail.backends.console.EmailBackend"
 )
-# FIN - Correo de desarrollo sin SMTP
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "").strip() or (
+    "" if BREVO_EMAIL_ENABLED else "Iter Runners <no-reply@iter-runners.local>"
+)
+if BREVO_EMAIL_ENABLED and (not BREVO_API_KEY or not DEFAULT_FROM_EMAIL):
+    raise ValueError("Configura BREVO_API_KEY y DEFAULT_FROM_EMAIL para habilitar el correo de Brevo.")
 
 
 STATICFILES_DIRS = [
@@ -229,17 +235,22 @@ STATICFILES_DIRS = [
 STRAVA_ENABLED = _env_bool("STRAVA_ENABLED", False)
 # FIN - Control de integración con Strava
 
-STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID", "202709" if DEBUG else "")
+STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID", "")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET", "")
-STRAVA_REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI", "http://127.0.0.1:8000/strava/callback/")
+STRAVA_REDIRECT_URI = os.getenv("STRAVA_REDIRECT_URI", "")
 
 # INICIO - Validación de Strava solo cuando se habilita
-if STRAVA_ENABLED and not DEBUG:
+if STRAVA_ENABLED:
     if not STRAVA_CLIENT_ID:
         raise ValueError("Falta STRAVA_CLIENT_ID para habilitar Strava.")
     if not STRAVA_CLIENT_SECRET:
         raise ValueError("Falta STRAVA_CLIENT_SECRET para habilitar Strava.")
-    if not STRAVA_REDIRECT_URI.startswith("https://"):
+    callback = urlsplit(STRAVA_REDIRECT_URI)
+    if (callback.scheme not in {"http", "https"} or not callback.hostname
+            or callback.path != "/strava/callback/" or callback.query or callback.fragment
+            or callback.username is not None or callback.password is not None):
+        raise ValueError("STRAVA_REDIRECT_URI debe ser una URL absoluta a /strava/callback/.")
+    if not DEBUG and callback.scheme != "https":
         raise ValueError("STRAVA_REDIRECT_URI debe usar HTTPS con DEBUG=False.")
 # FIN - Validación de Strava solo cuando se habilita
 
