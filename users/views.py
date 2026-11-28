@@ -84,7 +84,18 @@ def _is_in_group(user, name: str) -> bool:
 
 
 def _is_staffish(user) -> bool:
-    # “Profesor” o “Admin” funcional o superuser
+    """
+    Determina si un usuario tiene permisos de staff (Profesor, Admin o superuser).
+    
+    Se usa en lugar de 'user.is_staff' porque el proyecto maneja roles
+    personalizados mediante grupos de Django.
+    
+    Args:
+        user: Instancia de User de Django.
+        
+    Returns:
+        bool: True si el usuario es superuser, Profesor o Admin.
+    """
     return user.is_superuser or _is_in_group(user, "Profesor") or _is_in_group(user, "Admin")
 
 
@@ -122,6 +133,20 @@ def _forbidden(msg: str = "No tienes permiso para ver esta página."):
 
 
 def _resolve_user_club(user):
+    """
+    Resuelve el club al que pertenece un usuario (para scoped queries).
+    
+    Lógica de resolución (en orden de prioridad):
+    1. Club directo del perfil del usuario.
+    2. Club del grupo al que pertenece el perfil.
+    3. Si es superuser: club 'kinerrunners' o el primero disponible.
+    
+    Args:
+        user: Instancia de User de Django.
+        
+    Returns:
+        Club or None: Instancia del club o None si no se encuentra.
+    """
     perfil = (
         Perfil.objects
         .select_related("club", "grupo__club")
@@ -160,6 +185,21 @@ STRAVA_TOKEN_FIELDS = ("strava_access_token", "strava_refresh_token", "strava_ex
 
 
 def _strava_request_tokens(**grant):
+    """
+    Intercambia un código de autorización o refresh token por credenciales de Strava.
+    
+    Realiza el POST a /oauth/token de Strava con el client_id y client_secret
+    del proyecto. Valida que la respuesta tenga tokens con longitud y formato correctos.
+    
+    Args:
+        **grant: Diccionario con 'grant_type' y 'code' o 'refresh_token'.
+        
+    Returns:
+        dict: Datos del token (access_token, refresh_token, expires_at) o None si falla.
+        
+    Note:
+        Los tokens de Strava expiran en 6 horas. El refresh_token rota en cada uso.
+    """
     try:
         response = requests.post(
             "https://www.strava.com/oauth/token",
@@ -302,8 +342,28 @@ def _strava_sync_latest_activities(perfil, per_page=30):
 
 def _auto_mark_cumplimiento_from_strava(perfil, lookback_days=3, min_distance_m=1):
     """
-    Marca cumplimiento automatico usando actividades Strava recientes.
-    No modifica la vista de profesor: solo completa datos en backend.
+    Marca automáticamente entrenamientos como 'realizados' usando actividades de Strava.
+    
+    Lógica de negocio:
+    1. Busca actividades Strava de los últimos 'lookback_days' días.
+    2. Filtra solo actividades de tipo 'Run' o 'TrailRun'.
+    3. Si hay múltiples actividades en un día, toma la de mayor distancia.
+    4. Compara con EntrenamientoDiario del grupo del corredor.
+    5. Si la modalidad del entreno coincide con la actividad (trail vs runners),
+       marca el cumplimiento como realizado.
+    
+    Restricciones:
+    - No sobrescribe cumplimientos con comentarios manuales (respeto al profesor).
+    - Solo funciona si el perfil tiene grupo asignado.
+    - No modifica la vista de cumplimiento del profesor.
+    
+    Args:
+        perfil (Perfil): Instancia del perfil del corredor.
+        lookback_days (int): Días hacia atrás para buscar actividades.
+        min_distance_m (int): Distancia mínima en metros para considerar válida.
+        
+    Returns:
+        int: Cantidad de cumplimientos marcados automáticamente.
     """
     if not perfil or not getattr(perfil, "grupo_id", None):
         return 0
@@ -411,9 +471,24 @@ def _auto_mark_cumplimiento_from_strava(perfil, lookback_days=3, min_distance_m=
 
 def _geocode_location(lat, lng):
     """
-    Obtiene la ubicación (comuna, provincia, país) a partir de coordenadas.
-    Usa Nominatim (OpenStreetMap) - gratis pero requiere respetar rate limit.
-    Retorna (comuna, provincia, pais) o (None, None, None) si falla.
+    Obtiene la ubicación geográfica (comuna, provincia, país) desde coordenadas.
+    
+    Usa el servicio gratuito Nominatim (OpenStreetMap).
+    
+    Restricciones importantes:
+    - Rate limit: máximo 1 request por segundo (time.sleep(1.1)).
+    - Solo acepta coordenadas válidas (-90 a 90 lat, -180 a 180 lng).
+    - Prioriza datos de Chile (country_code='cl') con lógica específica.
+    
+    Args:
+        lat (float): Latitud en grados decimales.
+        lng (float): Longitud en grados decimales.
+        
+    Returns:
+        tuple: (comuna, provincia, pais) o (None, None, None) si falla.
+        
+    Raises:
+        Exception: Loggea el error pero no lo propaga (falla silenciosa).
     """
     if lat is None or lng is None:
         return None, None, None
