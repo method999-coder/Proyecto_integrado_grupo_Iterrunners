@@ -5,299 +5,398 @@
 {% block body_class %}app-home{% endblock %}
 
 {% block content %}
-<div class="home-topbar">
-  <div class="home-user">
-    <div class="user-menu">
-      <button type="button" class="avatar user-chip" id="userMenuBtn"
-              aria-haspopup="true" aria-expanded="false">
-        {{ user.username|slice:":1"|upper }}
-      </button>
-
-      <div class="dropdown" id="userDropdown" hidden>
-        {% url 'perfil' as perfil_url %}
-        {% url 'calendario' as calendario_url %}
-
-        <a href="{{ perfil_url }}" data-menu-item="perfil">Perfil/Ritmos</a>
-        <a href="{{ calendario_url }}" data-menu-item="calendario">Calendario</a>
-
+<div class="home-container">
+  
+  <!-- 1. HEADER DE USUARIO -->
+<header class="home-header">
+  <div class="user-profile">
+    <button type="button" class="avatar-btn" id="userMenuBtn" aria-haspopup="true" aria-expanded="false">
+      {{ user.username|slice:":1"|upper }}
+    </button>
+    <div class="user-info">
+      <h1 class="user-name">{{ user.username|capfirst }}</h1>
+      <div class="user-badges">
+        <span class="badge badge-primary">{{ perfil.grupo.nombre|default:"Sin grupo" }}</span>
         {% if strava_conectado %}
-          <form method="post" action="{% url 'strava_disconnect' %}">
-            {% csrf_token %}
-            <button type="submit" class="dropdown-logout" data-menu-item="strava-disconnect">Desconectar strava</button>
-          </form>
-          <form method="post" action="{% url 'strava_delete_data' %}" onsubmit="return confirm('¿Seguro que quieres eliminar tus datos de Strava en la app? Esta acción no se puede deshacer.');">
-            {% csrf_token %}
-            <button type="submit" class="dropdown-logout" data-menu-item="strava-delete-data">Eliminar datos de Strava</button>
-          </form>
+          <span class="badge badge-success">Strava: Conectado ✅</span>
+        {% elif strava_enabled %}
+          <a href="{% url 'strava_login' %}" class="badge badge-outline">Conectar Strava</a>
         {% endif %}
-
-        <form method="post" action="{% url 'logout' %}">
-          {% csrf_token %}
-          <button type="submit" class="dropdown-logout" data-menu-item="logout">Cerrar sesión</button>
-        </form>
       </div>
     </div>
 
-    <div class="home-user-meta">
-      <div class="home-name">{{ user.username|capfirst }}</div>
-      <div class="home-badges">
-        <span class="badge">{{ perfil.grupo.nombre|default:"Sin grupo" }}</span>
-        {% if strava_conectado %}
-          <span class="badge muted">
-              Strava: Conectado ✅
-          </span>
-        {# INICIO - Ocultar vinculación cuando Strava está desactivado #}
-        {% elif strava_enabled %}
-          <a href="{% url 'strava_login' %}" class="badge" style="text-decoration:none;">
-            Conectar Strava
-          </a>
-        {% endif %}
-        {# FIN - Ocultar vinculación cuando Strava está desactivado #}
+    <!-- Menú Desplegable (ahora DENTRO del bloque de usuario) -->
+    <div class="dropdown-menu" id="userDropdown" hidden>
+      <a href="{% url 'perfil' %}" class="dropdown-item">👤 Perfil / Ritmos</a>
+      <a href="{% url 'calendario' %}" class="dropdown-item">📅 Calendario</a>
 
-      </div>
+      {% if strava_conectado %}
+        <form method="post" action="{% url 'strava_disconnect' %}" class="dropdown-form">
+          {% csrf_token %}
+          <button type="submit" class="dropdown-item text-warning">Desconectar Strava</button>
+        </form>
+        <form method="post" action="{% url 'strava_delete_data' %}" class="dropdown-form" onsubmit="return confirm('¿Seguro que quieres eliminar tus datos de Strava? Esta acción no se puede deshacer.');">
+          {% csrf_token %}
+          <button type="submit" class="dropdown-item text-danger">Eliminar datos de Strava</button>
+        </form>
+      {% endif %}
+
+      <div class="dropdown-divider"></div>
+      <form method="post" action="{% url 'logout' %}" class="dropdown-form">
+        {% csrf_token %}
+        <button type="submit" class="dropdown-item text-danger">Cerrar sesión</button>
+      </form>
     </div>
   </div>
 
   {% if user.is_superuser or es_profesor or es_admin %}
-    <a class="btn-admin" href="{% url 'administracion' %}">Admin</a>
+    <a class="btn-admin" href="{% url 'administracion' %}">⚙️ Admin</a>
   {% endif %}
-</div>
+</header>
 
-{% if cumpleanos_hoy %}
-  <div id="birthdayModal" class="birthday-modal" hidden>
-    <div class="birthday-card">
-      <h3>🎉 ¡Hoy celebramos a {% for p in cumpleanos_hoy %}{{ p.nombre }}{% if p.apellido %} {{ p.apellido }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}! 🎉</h3>
-      <p>Que tengas un día increíble y que sigas sumando kilómetros 🏃‍♂️🏃‍♀️</p>
-      <button id="closeBirthday" type="button" class="btn-mini birthday-close" onclick="document.getElementById('birthdayModal').style.display='none'">Cerrar</button>
+  <!-- 2. MODAL DE CUMPLEAÑOS (Se muestra si aplica) -->
+  {% if cumpleanos_hoy %}
+    <div id="birthdayModal" class="modal-overlay" hidden>
+      <div class="birthday-card">
+        <div class="birthday-icon">🎉</div>
+        <h3>¡Feliz Cumpleaños!</h3>
+        <p>Hoy celebramos a: <strong>{% for p in cumpleanos_hoy %}{{ p.nombre }} {{ p.apellido }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong></p>
+        <p class="birthday-sub">Que sigas sumando kilómetros y logros 🏃‍♂️🏃‍♀️</p>
+        <button id="closeBirthday" type="button" class="btn-primary">¡Gracias!</button>
+      </div>
     </div>
-  </div>
-
-  <script>
-    (function(){
-      const m = document.getElementById('birthdayModal');
-      if (!m) return;
-      m.removeAttribute('hidden');
-      // Robust close: button inline onclick + overlay click
-      try{
-        m.addEventListener('click', function(e){ if (e.target === m) m.style.display='none'; });
-      }catch(e){/* ignore */}
-      // opcional: cerrar automáticamente
-      // setTimeout(()=> m.setAttribute('hidden',''), 8000);
-    })();
-  </script>
-
-  <style>
-    .birthday-modal{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); z-index:9999; }
-    .birthday-card{ background:#fff; color:#111; padding:14px; border-radius:10px; max-width:320px; text-align:center; border:3px solid #0ea5ff; box-shadow: 0 8px 30px rgba(14,165,255,0.12); }
-    .birthday-card h3{ margin:0 0 8px; }
-    .birthday-card p{ margin:0 0 12px; font-weight:700; }
-    .birthday-card .birthday-close{ background:#0b1226; color:#fff; border:2px solid #0ea5ff; padding:6px 12px; }
-    .birthday-card .birthday-close:hover{ background:#0b1226; box-shadow:0 6px 18px rgba(14,165,255,0.18); }
-  </style>
-{% endif %}
-
-<div class="plan-hoy">
-  <h2 style="color:#f2c230;">Plan de hoy - {{ fecha_hoy|date:"l j \\d\\e F" }}</h2>
-
-  {% if entreno_hoy %}
-    <p class="plan-desc">
-      <strong style="font-size:1.08rem;">{{ entreno_hoy.get_tipo_display }}</strong>
-    </p>
-
-    {% if entreno_hoy.descripcion %}
-      <p class="plan-desc">{{ entreno_hoy.descripcion }}</p>
-    {% endif %}
-
-    {% if entreno_hoy.recursos.all %}
-      <div class="home-resources-wrap">
-        <div class="home-resources-title">Recursos del dia</div>
-        <div class="home-resources-list">
-          {% for recurso in entreno_hoy.recursos.all %}
-            <a href="{{ recurso.url }}" target="_blank" rel="noopener noreferrer" class="home-resource-link">
-              {{ recurso.titulo }}
-            </a>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
-
-    {% if ritmos_resumen %}
-      <div style="text-align:center; margin: 6px 0 2px;">
-        <a href="#" id="toggleRitmos" style="color:#fff !important; font-weight:700; text-decoration:underline;">Ver ritmos</a>
-      </div>
-      <div id="ritmosBox" hidden style="margin: 8px auto 6px; max-width: 320px; text-align:left; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px;">
-        {% for nombre, minimo, maximo in ritmos_resumen %}
-          {% if minimo or maximo %}
-            {% with zona=nombre|upper %}
-              <div class="home-ritmo-row {% if zona == 'REG' or zona == 'Z0' %}home-ritmo-reg{% elif zona == 'R1' or zona == 'Z1' %}home-ritmo-r1{% elif zona == 'R2' or zona == 'Z2' %}home-ritmo-r2{% elif zona == 'R3' or zona == 'Z3' %}home-ritmo-r3{% elif zona == 'UL' or zona == 'Z4' %}home-ritmo-ul{% elif zona == 'CA' or zona == 'Z5' %}home-ritmo-ca{% elif zona == 'CAN' or zona == 'Z6' %}home-ritmo-can{% else %}home-ritmo-default{% endif %}">
-                <span class="home-ritmo-zona">{{ nombre }}</span>
-                <span class="home-ritmo-rango">{{ minimo|default:'-' }}{% if minimo and maximo %} - {% endif %}{{ maximo|default:'' }}</span>
-              </div>
-            {% endwith %}
-          {% endif %}
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% if km_semana is not None %}
-      <p class="plan-desc" style="color:#fff; font-weight:700; margin-top: 8px;">Km semana: {{ km_semana|floatformat:"-1" }} km</p>
-    {% endif %}
-
-    {% if es_corredor or es_admin %}
-      <div style="margin-top: 12px; text-align:center;">
-        <a class="btn-mini blue btn-mini-home" href="{% url 'registro_actividad' %}?fecha={{ fecha_hoy|date:'Y-m-d' }}" style="display:inline-block; text-decoration:none; border:none;">Registrar esta actividad</a>
-      </div>
-    {% endif %}
-  {% else %}
-    <p class="plan-desc">Hoy no tienes entrenamiento asignado (Descanso).</p>
-
-    {% if es_corredor or es_admin %}
-      <div style="margin-top: 12px; text-align:center;">
-        <a class="btn-mini blue" href="{% url 'registro_actividad' %}" style="display:inline-block; text-decoration:none; border:none;">Registrar otra fecha</a>
-      </div>
-    {% endif %}
   {% endif %}
+
+  <!-- 3. PLAN DEL DÍA (Hero Section) -->
+  <section class="card plan-hoy-card">
+    <div class="card-header">
+      <h2 class="card-title">🏃 Plan de Hoy</h2>
+      <span class="card-date">{{ fecha_hoy|date:"l, j \\d\\e F" }}</span>
+    </div>
+
+    {% if entreno_hoy %}
+      <div class="plan-content">
+        <h3 class="plan-type">{{ entreno_hoy.get_tipo_display }}</h3>
+        {% if entreno_hoy.descripcion %}
+          <p class="plan-desc">{{ entreno_hoy.descripcion }}</p>
+        {% endif %}
+
+        {% if entreno_hoy.recursos.all %}
+          <div class="resources-box">
+            <span class="resources-title">📚 Recursos del día:</span>
+            <div class="resources-list">
+              {% for recurso in entreno_hoy.recursos.all %}
+                <a href="{{ recurso.url }}" target="_blank" rel="noopener noreferrer" class="resource-link">
+                  🔗 {{ recurso.titulo }}
+                </a>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if ritmos_resumen %}
+          <div class="ritmos-section">
+            <button id="toggleRitmos" class="btn-text">📊 Ver ritmos objetivo</button>
+            <div id="ritmosBox" class="ritmos-grid" hidden>
+              {% for nombre, minimo, maximo in ritmos_resumen %}
+                {% if minimo or maximo %}
+                  {% with zona=nombre|upper %}
+                    <div class="ritmo-item ritmo-{{ zona|lower }}">
+                      <span class="ritmo-zona">{{ nombre }}</span>
+                      <span class="ritmo-rango">{{ minimo|default:'-' }}{% if minimo and maximo %} - {% endif %}{{ maximo|default:'' }}</span>
+                    </div>
+                  {% endwith %}
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        {% if km_semana is not None %}
+          <div class="weekly-km">
+            <span>📈 Kilómetros esta semana:</span>
+            <strong>{{ km_semana|floatformat:"1" }} km</strong>
+          </div>
+        {% endif %}
+
+        {% if es_corredor or es_admin %}
+          <a href="{% url 'registro_actividad' %}?fecha={{ fecha_hoy|date:'Y-m-d' }}" class="btn-primary btn-block">Registrar actividad de hoy</a>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="plan-content plan-rest">
+        <h3 class="plan-type">😴 Día de Descanso</h3>
+        <p class="plan-desc">Hoy no tienes entrenamiento asignado. ¡Recupera fuerzas!</p>
+        {% if es_corredor or es_admin %}
+          <a href="{% url 'registro_actividad' %}" class="btn-secondary btn-block">Registrar actividad de otra fecha</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- 4. GRID DE ACCIONES RÁPIDAS -->
+  <section class="actions-grid">
+    <a class="action-card" href="{% url 'calendario' %}">
+      <div class="action-icon">📅</div>
+      <div class="action-label">Calendario</div>
+    </a>
+
+    {% if strava_enabled %}
+    <a class="action-card" href="{% url 'actividad' %}">
+      <div class="action-icon">🏃</div>
+      <div class="action-label">Actividad</div>
+    </a>
+    {% endif %}
+
+    <a class="action-card" href="{% url 'estadisticas' %}">
+      <div class="action-icon">📊</div>
+      <div class="action-label">Estadísticas</div>
+    </a>
+
+    <a class="action-card" href="{% url 'mi_grupo' %}">
+      <div class="action-icon">👥</div>
+      <div class="action-label">Mi Grupo</div>
+    </a>
+  </section>
+
+  <!-- 5. FOOTER -->
+  <footer class="home-footer">
+    <p>Compatible con Strava 🏃‍♂️💨</p>
+    <a href="{% url 'privacy_policy' %}">Política de Privacidad</a>
+  </footer>
+
 </div>
 
-
-<div class="grid-actions">
-  <a class="card-action" href="{% url 'calendario' %}">
-    <div class="icon">📅</div>
-    <div class="label">Calendario de entrenamiento</div>
-  </a>
-
-  {# INICIO - Ocultar la consulta en vivo cuando Strava está desactivado #}
-  {% if strava_enabled %}
-  <a class="card-action" href="{% url 'actividad' %}">
-    <div class="icon">🏃</div>
-    <div class="label">Actividad</div>
-  </a>
-  {% endif %}
-  {# FIN - Ocultar la consulta en vivo cuando Strava está desactivado #}
-
-  <a class="card-action" href="{% url 'estadisticas' %}">
-    <div class="icon">📊</div>
-    <div class="label">Estadísticas</div>
-  </a>
-
-  <a class="card-action" href="{% url 'mi_grupo' %}">
-    <div class="icon">👥</div>
-    <div class="label">Mi grupo</div>
-  </a>
-</div>
-
-<p style="text-align:center; margin:14px 0 4px; font-size:12px; opacity:.72;">
-  <span style="display:block; margin-bottom:4px; color:#dbe6ff;">Compatible con Strava</span>
-  <a href="{% url 'privacy_policy' %}" style="color:#dbe6ff; text-decoration:none;">Política de Privacidad</a>
-</p>
-
+<!-- ========================================== -->
+<!-- ESTILOS CSS (Consolidados y Modernizados)  -->
+<!-- ========================================== -->
 <style>
-  .home-resources-wrap{
-    margin: 10px auto 4px;
-    max-width: 360px;
-    text-align:center;
+
+  body.app-home {
+    background: radial-gradient(circle at top right, #d6d2c4 0%, #1c1c1c 40%, #000000 100%);
+    min-height: 100vh;
+    color: #ffffff;
   }
 
-  .home-resources-title{
-    font-weight:700;
-    color:#f2c230;
-    margin-bottom:6px;
+  :root {
+    --primary: #bda627;
+    --primary-dark: #0284c7;
+    --accent: #bb900f;
+    --bg-dark: #1c255a;
+    --card-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #b8a594;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --warning: #f59e0b;
   }
 
-  .home-resources-list{
-    display:grid;
-    gap:6px;
-    justify-items:center;
+  .home-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 16px;
+    color: var(--text-main);
+    font-family: system-ui, -apple-system, sans-serif;
   }
 
-  .home-resource-link{
-    color:#dbe6ff;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    font-size:0.92rem;
-    cursor:pointer;
-    font-style: italic;
+  /* Header */
+  .home-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+  }
+  .avatar-btn {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--primary); color: white; border: none;
+    font-weight: bold; font-size: 1.2rem; cursor: pointer;
+    box-shadow: 0 4px 6px rgba(14, 165, 255, 0.3);
+  }
+  .user-name { margin: 0; font-size: 1.1rem; font-weight: 700; }
+  .user-badges { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  
+  .badge {
+    font-size: 0.75rem; padding: 4px 8px; border-radius: 12px; font-weight: 600; text-decoration: none;
+  }
+  .badge-primary { background: rgba(139, 141, 21, 0.2); color: var(--primary); }
+  .badge-success { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+  .badge-outline { 
+    border: 1px solid rgba(102, 77, 24, 0.863); 
+    color: #e45f06; 
+    background: rgba(3, 6, 56, 0.884);
   }
 
-  .home-resource-link:hover{
-    color:#ffffff;
+  /* Dropdown */
+  .dropdown-menu {
+    position: absolute; 
+    top: calc(100% + 8px);
+    left:auto;
+    right: auto;
+    background: var(--card-bg); 
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; 
+    padding: 8px; 
+    min-width: 200px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+    z-index: 50;
   }
-
-  .home-ritmo-row{
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    font-size:0.95rem;
-    padding:6px 8px;
-    border-radius:8px;
-    margin:4px 0;
-    border:1px solid rgba(255,255,255,.08);
+  .dropdown-item {
+    display: block; width: 100%; text-align: left; padding: 10px;
+    background: none; border: none; color: var(--text-main);
+    text-decoration: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
   }
+  .dropdown-item:hover { background: rgba(255,255,255,0.05); }
+  .text-warning { color: var(--warning); }
+  .text-danger { color: var(--danger); }
+  .dropdown-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0; }
+  .dropdown-form { margin: 0; }
 
-  .home-ritmo-zona{
-    font-weight:800;
-    letter-spacing:.2px;
+  .btn-admin {
+    background: var(--accent);
+    color: #1c1c1c;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    border: 1px solid var(--accent);
   }
-
-  .home-ritmo-rango{
-    opacity:.95;
-    font-weight:700;
+  /* Cards Generales */
+  .card {
+    background: var(--card-bg); border-radius: 16px; padding: 20px;
+    margin-bottom: 20px; border: 1px solid rgba(182, 142, 11, 0.274);
   }
+  .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; border-bottom: 1px solid rgba(102, 77, 24, 0.863); padding-bottom: 12px; }
+  .card-title { margin: 0; font-size: 1.2rem; color: var(--accent); }
+  .card-date { font-size: 0.85rem; color: var(--text-muted); text-transform: capitalize; }
 
-  .home-ritmo-reg{ background: #eef3ff; color:#111; }
-  .home-ritmo-r1{ background: #dde8ff; color:#111; }
-  .home-ritmo-r2{ background: #c9dcff; color:#111; }
-  .home-ritmo-r3{ background: #b5d1ff; color:#111; }
-  .home-ritmo-ul{ background: #ffe082; color:#111; }
-  .home-ritmo-ca{ background: #ffb74d; color:#111; }
-  .home-ritmo-can{ background: #ef5350; color:#111; }
-  .home-ritmo-default{ background: #e5efff; color:#111; }
+  /* Plan de Hoy */
+  .plan-type { margin: 0 0 8px; font-size: 1.3rem; color: var(--text-main); }
+  .plan-desc { color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
+  .plan-rest { text-align: center; padding: 20px 0; }
+  
+  .resources-box { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+  .resources-title { display: block; font-size: 0.85rem; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+  .resource-link { display: block; color: var(--primary); text-decoration: none; font-size: 0.9rem; margin-bottom: 4px; }
+  .resource-link:hover { text-decoration: underline; }
+
+  .ritmos-section { margin: 16px 0; }
+  .ritmos-grid { 
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; 
+  }
+  .ritmo-item { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; color: #111; }
+  
+  /* Colores de Ritmos */
+  .ritmo-reg { background: #eef3ff; } .ritmo-z0 { background: #eef3ff; }
+  .ritmo-r1 { background: #dde8ff; } .ritmo-z1 { background: #dde8ff; }
+  .ritmo-r2 { background: #c9dcff; } .ritmo-z2 { background: #c9dcff; }
+  .ritmo-r3 { background: #b5d1ff; } .ritmo-z3 { background: #b5d1ff; }
+  .ritmo-ul { background: #ffe082; } .ritmo-z4 { background: #ffe082; }
+  .ritmo-ca { background: #ffb74d; } .ritmo-z5 { background: #ffb74d; }
+  .ritmo-can { background: #ef5350; color: white !important; } .ritmo-z6 { background: #ef5350; color: white !important; }
+
+  .weekly-km { text-align: center; margin: 16px 0; padding: 12px; background: rgba(242, 194, 48, 0.1); border-radius: 8px; color: var(--accent); }
+
+  /* Botones */
+  .btn-primary {
+    display: inline-block; background: var(--primary); color: white; padding: 12px 20px;
+    border-radius: 8px; text-decoration: none; font-weight: 600; border: none; cursor: pointer; text-align: center;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary {
+    display: inline-block; background: rgba(255, 255, 255, 0.1); color: var(--text-main); padding: 12px 20px;
+    border-radius: 8px; text-decoration: none; font-weight: 600; border: 1px solid rgba(255,255,255,0.2);
+  }
+  .btn-block { display: block; width: 100%; margin-top: 16px; box-sizing: border-box; }
+  .btn-text { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.9rem; text-decoration: underline; }
+
+  /* Grid de Acciones */
+  .actions-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px;
+  }
+  .action-card {
+    background: var(--card-bg); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px;
+    padding: 20px; text-align: center; text-decoration: none; color: var(--text-main);
+    transition: transform 0.2s, background 0.2s;
+  }
+  .action-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.05); }
+  .action-icon { font-size: 2rem; margin-bottom: 8px; }
+  .action-label { font-weight: 600; font-size: 0.95rem; }
+
+  /* Footer */
+  .home-footer { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 32px; }
+  .home-footer a { color: var(--primary); text-decoration: none; }
+
+  /* Modal Cumpleaños */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex;
+    align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .birthday-card {
+    background: var(--card-bg); color: var(--text-main); padding: 24px; border-radius: 16px;
+    max-width: 340px; text-align: center; border: 2px solid var(--accent);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5); animation: popIn 0.3s ease-out;
+  }
+  .birthday-icon { font-size: 3rem; margin-bottom: 8px; }
+  .birthday-sub { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px; }
+  @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 </style>
 
+<!-- ========================================== -->
+<!-- JAVASCRIPT (Limpio y encapsulado)          -->
+<!-- ========================================== -->
 <script>
-  (function () {
-    const btn = document.getElementById("userMenuBtn");
-    const dd  = document.getElementById("userDropdown");
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1. Menú de Usuario
+    const userBtn = document.getElementById("userMenuBtn");
+    const userDropdown = document.getElementById("userDropdown");
+    if (userBtn && userDropdown) {
+      userBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isHidden = userDropdown.hasAttribute("hidden");
+        userDropdown.toggleAttribute("hidden", !isHidden);
+        userBtn.setAttribute("aria-expanded", isHidden);
+      });
+      document.addEventListener("click", () => {
+        userDropdown.setAttribute("hidden", "");
+        userBtn.setAttribute("aria-expanded", "false");
+      });
 
-    if (!btn || !dd) return;
+    }
 
-    btn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      const isHidden = dd.hasAttribute("hidden");
-      if (isHidden) {
-        dd.removeAttribute("hidden");
-        btn.setAttribute("aria-expanded", "true");
-      } else {
-        dd.setAttribute("hidden", "");
-        btn.setAttribute("aria-expanded", "false");
+    // 2. Toggle de Ritmos
+    const toggleRitmos = document.getElementById("toggleRitmos");
+    const ritmosBox = document.getElementById("ritmosBox");
+    if (toggleRitmos && ritmosBox) {
+      toggleRitmos.addEventListener("click", (e) => {
+        e.preventDefault();
+        const isHidden = ritmosBox.hasAttribute("hidden");
+        ritmosBox.toggleAttribute("hidden", !isHidden);
+        toggleRitmos.textContent = isHidden ? "Ocultar ritmos" : "📊 Ver ritmos objetivo";
+      });
+    }
+
+    // 3. Modal de Cumpleaños
+    const birthdayModal = document.getElementById('birthdayModal');
+    const closeBirthdayBtn = document.getElementById('closeBirthday');
+    if (birthdayModal) {
+      birthdayModal.removeAttribute('hidden');
+      if (closeBirthdayBtn) {
+        closeBirthdayBtn.addEventListener('click', () => {
+          birthdayModal.style.display = 'none';
+        });
       }
-    });
-
-    document.addEventListener("click", function () {
-      dd.setAttribute("hidden", "");
-      btn.setAttribute("aria-expanded", "false");
-    });
-  })();
-
-  (function () {
-    const toggle = document.getElementById("toggleRitmos");
-    const box = document.getElementById("ritmosBox");
-    if (!toggle || !box) return;
-
-    toggle.addEventListener("click", function (event) {
-      event.preventDefault();
-      const isHidden = box.hasAttribute("hidden");
-      if (isHidden) {
-        box.removeAttribute("hidden");
-        toggle.textContent = "Ocultar ritmos";
-      } else {
-        box.setAttribute("hidden", "");
-        toggle.textContent = "Ver ritmos";
-      }
-    });
-  })();
+      birthdayModal.addEventListener('click', (e) => {
+        if (e.target === birthdayModal) birthdayModal.style.display = 'none';
+      });
+    }
+  });
 </script>
 
 {% endblock %}
-
-
