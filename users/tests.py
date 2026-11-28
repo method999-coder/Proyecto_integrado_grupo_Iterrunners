@@ -1,5 +1,8 @@
 from datetime import date, datetime, timedelta
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
+
+import requests
 
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.models import Group, User
@@ -16,6 +19,54 @@ from .models import CumplimientoEntrenamiento, EntrenamientoDiario, Grupo, Perfi
 
 
 class CriticalViewsTests(TestCase):
+	@override_settings(
+		EMAIL_BACKEND="users.email_backend.BrevoEmailBackend",
+		BREVO_API_KEY="fake-brevo-key",
+		DEFAULT_FROM_EMAIL="Iter Runners <academico@example.com>",
+	)
+	def test_password_reset_sends_django_link_via_brevo(self):
+		User.objects.create_user("runner_email", email="runner@example.com", password="testpass123")
+		reset_url = reverse("password_reset")
+
+		with patch("users.email_backend.requests.post") as post:
+			post.return_value.status_code = 201
+			response = self.client.post(reset_url, {"email": "runner@example.com"})
+			self.assertRedirects(response, reverse("password_reset_done"))
+			self.assertRedirects(
+				self.client.post(reset_url, {"email": "unknown@example.com"}),
+				reverse("password_reset_done"),
+			)
+			post.assert_called_once()
+
+		request = post.call_args
+		self.assertEqual(request.args, ("https://api.brevo.com/v3/smtp/email",))
+		self.assertEqual(request.kwargs["headers"]["api-key"], "fake-brevo-key")
+		self.assertFalse(request.kwargs["allow_redirects"])
+		payload = request.kwargs["json"]
+		self.assertEqual(payload["sender"], {"name": "Iter Runners", "email": "academico@example.com"})
+		self.assertEqual(payload["to"], [{"email": "runner@example.com"}])
+		reset_link = next(line.strip() for line in payload["textContent"].splitlines() if line.startswith("http"))
+		reset_page = self.client.get(urlsplit(reset_link).path, follow=True)
+		self.assertTemplateUsed(reset_page, "users/password_reset_confirm.html")
+		self.assertTrue(reset_page.context["validlink"])
+
+	@override_settings(
+		EMAIL_BACKEND="users.email_backend.BrevoEmailBackend",
+		BREVO_API_KEY="fake-brevo-key",
+		DEFAULT_FROM_EMAIL="academico@example.com",
+	)
+	def test_password_reset_keeps_generic_response_on_brevo_error(self):
+		User.objects.create_user("runner_mail_error", email="runner@example.com", password="testpass123")
+		with patch("users.email_backend.requests.post") as post:
+			post.return_value.status_code = 503
+			with self.assertLogs("django.contrib.auth", level="ERROR") as logs:
+				response = self.client.post(reverse("password_reset"), {"email": "runner@example.com"})
+
+		self.assertRedirects(response, reverse("password_reset_done"))
+		self.assertIn("HTTP 503", logs.output[0])
+		self.assertNotIn("fake-brevo-key", logs.output[0])
+		self.assertNotIn("runner@example.com", logs.output[0])
+
 	def _create_user_with_profile(self, username, role, django_group_name, grupo=None, is_superuser=False):
 		user = User.objects.create_user(username=username, password="testpass123")
 		user.is_superuser = is_superuser
@@ -650,16 +701,29 @@ class CriticalViewsTests(TestCase):
 			django_group_name="Corredor",
 		)
 		perfil.strava_access_token = "fake-access-token"
-		perfil.save(update_fields=["strava_access_token"])
+		perfil.strava_refresh_token = "fake-refresh-token"
+		perfil.strava_athlete_id = 900
+		perfil.save(update_fields=["strava_access_token", "strava_refresh_token", "strava_athlete_id"])
+		activity = StravaActividad.objects.create(perfil=perfil, strava_id=901)
 		self.client.force_login(user)
 
 		with patch("users.views.requests.post") as post:
+			post.side_effect = requests.Timeout
+			self.client.post(reverse("strava_disconnect"))
+			perfil.refresh_from_db()
+			self.assertEqual(perfil.strava_access_token, "fake-access-token")
+			post.reset_mock(side_effect=True)
 			response = self.client.post(reverse("strava_disconnect"))
 
 		self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
 		post.assert_called_once()
+		self.assertTrue(post.call_args.args[0].endswith("/oauth/revoke"))
+		self.assertEqual(post.call_args.kwargs["data"], {"token": "fake-refresh-token"})
 		perfil.refresh_from_db()
 		self.assertIsNone(perfil.strava_access_token)
+		self.assertIsNone(perfil.strava_refresh_token)
+		self.assertEqual(perfil.strava_athlete_id, 900)
+		self.assertTrue(StravaActividad.objects.filter(pk=activity.pk, perfil=perfil).exists())
 
 	@override_settings(STRAVA_ENABLED=True)
 	def test_strava_delete_data_requires_post(self):
@@ -721,7 +785,9 @@ class CriticalViewsTests(TestCase):
 		self.assertIsNone(perfil.strava_athlete_id)
 		self.assertEqual(StravaActividad.objects.filter(perfil=perfil).count(), 0)
 
-	@override_settings(STRAVA_ENABLED=True)
+	@override_settings(
+		STRAVA_ENABLED=True, STRAVA_REDIRECT_URI="http://localhost:8766/strava/callback/",
+	)
 	def test_strava_login_sets_oauth_state_in_session(self):
 		grupo = Grupo.objects.create(nombre="State Group")
 		user, _ = self._create_user_with_profile(
@@ -735,8 +801,9 @@ class CriticalViewsTests(TestCase):
 		response = self.client.get(reverse("strava_login"))
 
 		self.assertEqual(response.status_code, 302)
-		self.assertIn("state=", response.url)
-		self.assertTrue(self.client.session.get("strava_oauth_state"))
+		params = parse_qs(urlsplit(response.url).query)
+		self.assertEqual(params["redirect_uri"], ["http://localhost:8766/strava/callback/"])
+		self.assertEqual(params["state"], [self.client.session["strava_oauth_state"]])
 
 	@override_settings(STRAVA_ENABLED=True)
 	def test_strava_callback_rejects_invalid_state(self):
@@ -764,5 +831,82 @@ class CriticalViewsTests(TestCase):
 		mock_post.assert_not_called()
 		perfil.refresh_from_db()
 		self.assertIsNone(perfil.strava_access_token)
+
+	@override_settings(STRAVA_ENABLED=True)
+	def test_strava_callback_requires_activity_access_and_saves_valid_tokens_once(self):
+		user, perfil = self._create_user_with_profile("runner_callback", "corredor", "Corredor")
+		self.client.force_login(user)
+		url = reverse("strava_callback")
+		params = {"code": "fake-code", "state": "expected-state", "scope": "read"}
+
+		with patch("users.views.requests.post") as post:
+			session = self.client.session
+			session["strava_oauth_state"] = "expected-state"
+			session.save()
+			self.client.get(url, params)
+			post.assert_not_called()
+			perfil.refresh_from_db()
+			self.assertIsNone(perfil.strava_access_token)
+
+			session = self.client.session
+			session["strava_oauth_state"] = "expected-state"
+			session.save()
+			params["scope"] = "read,activity:read_all"
+			post.return_value.status_code = 200
+			post.return_value.json.return_value = {
+				"access_token": "new-access", "refresh_token": "new-refresh",
+				"expires_at": 1893456000, "athlete": {"id": 400},
+			}
+			self.client.get(url, params)
+			self.client.get(url, params)
+			post.assert_called_once()
+
+		perfil.refresh_from_db()
+		self.assertEqual(perfil.strava_access_token, "new-access")
+		self.assertEqual(perfil.strava_refresh_token, "new-refresh")
+		self.assertEqual(perfil.strava_expires_at, 1893456000)
+		self.assertEqual(perfil.strava_athlete_id, 400)
+
+	@override_settings(STRAVA_ENABLED=True)
+	def test_strava_activity_refreshes_imports_idempotently_and_preserves_ownership(self):
+		user, perfil = self._create_user_with_profile("runner_import", "corredor", "Corredor")
+		_, other = self._create_user_with_profile("other_runner", "corredor", "Corredor")
+		perfil.strava_access_token = "expired-access"
+		perfil.strava_refresh_token = "old-refresh"
+		perfil.strava_expires_at = 1
+		perfil.save()
+		StravaActividad.objects.create(perfil=other, strava_id=600, name="Actividad ajena")
+		self.client.force_login(user)
+		url = reverse("actividad")
+
+		with patch("users.views.requests.post") as post, patch("users.views.requests.get") as get:
+			post.return_value.status_code = 200
+			post.return_value.json.return_value = {
+				"access_token": "fresh-access", "refresh_token": "rotated-refresh",
+				"expires_at": 1893456000,
+			}
+			get.return_value.status_code = 200
+			get.return_value.json.return_value = [
+				{
+					"id": 500, "name": "Actividad propia", "distance": 3000,
+					"start_date": timezone.now().isoformat(),
+				},
+				{"id": 600, "name": "Actividad ajena"},
+			]
+			for _ in range(2):
+				response = self.client.get(url)
+				self.assertContains(response, 'class="act-card"')
+				self.assertEqual([row.strava_id for row in response.context["actividades"]], [500])
+			post.assert_called_once()
+			self.assertEqual(get.call_args.kwargs["headers"]["Authorization"], "Bearer fresh-access")
+			get.side_effect = requests.Timeout
+			response = self.client.get(url)
+			self.assertContains(response, 'class="act-card"')
+			self.assertEqual([row.strava_id for row in response.context["actividades"]], [500])
+
+		perfil.refresh_from_db()
+		self.assertEqual(perfil.strava_refresh_token, "rotated-refresh")
+		self.assertEqual(StravaActividad.objects.filter(perfil=perfil, strava_id=500).count(), 1)
+		self.assertTrue(StravaActividad.objects.filter(perfil=other, strava_id=600).exists())
 	# FIN - Cobertura del aislamiento de Strava
 
